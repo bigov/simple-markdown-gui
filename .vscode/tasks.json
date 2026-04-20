@@ -1,0 +1,62 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Tests (pytest)",
+			"type": "shell",
+			"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"-q"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Run Tests (pytest - verbose)",
+			"type": "shell",
+			"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"-v"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Run Tests With Coverage",
+			"type": "shell",
+			"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"--cov=src",
+				"--cov-report=term-missing"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Run Single Test File",
+			"type": "shell",
+			"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"${input:pytestTestFile}"
+			],
+			"isBackground": false,
+			"group": "test"
+		}
+	],
+	"inputs": [
+		{
+			"id": "pytestTestFile",
+			"type": "promptString",
+			"description": "Relative path to a test file",
+			"default": "tests/test_markdown_roundtrip.py"
+		}
+	]
+}

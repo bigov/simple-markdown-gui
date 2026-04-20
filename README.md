@@ -42,6 +42,7 @@ pip install PySide6==6.7.0
 > **Note:** It is recommended to use a virtual environment to avoid conflicts with other Python projects.
 >
 > ```bash
+> python -m pip install --upgrade pip setuptools virtualenv
 > python -m venv .venv
 > # Activate on Linux / macOS:
 > source .venv/bin/activate
@@ -81,6 +82,18 @@ simple-markdown-gui/
 ```bash
 python src/app/main.py
 ```
+
+---
+
+## Pre-release check
+
+Before a release, run the Markdown round-trip regression test to verify that opening and saving documents in visual mode does not corrupt the original Markdown structure:
+
+```bash
+python -m unittest tests.test_markdown_roundtrip -v
+```
+
+For a short release workflow, see [docs/release-checklist.md](docs/release-checklist.md).
 
 ---
 
