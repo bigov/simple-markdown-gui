@@ -27,8 +27,8 @@ foreach ($logFile in $logFiles) {
 if (-not $KeepCurrentRelease -and (Test-Path $releaseDir)) {
     $currentReleasePattern = "simple-markdown-gui-windows-x64-v$CurrentVersion*"
     Get-ChildItem -Path $releaseDir -File |
-        Where-Object { $_.Name -notlike $currentReleasePattern } |
-        Remove-Item -Force
+    Where-Object { $_.Name -notlike $currentReleasePattern } |
+    Remove-Item -Force
 }
 
 Write-Host 'Cleanup completed successfully.'
