@@ -1,0 +1,33 @@
+NOTICE
+======
+
+Simple Markdown GUI
+Copyright (c) 2026 Bigov
+
+This product includes software developed by the Simple Markdown GUI project
+and is distributed under the MIT License. See the LICENSE file for details.
+
+-------------------------------------------------------------------------------
+
+Third-party components
+----------------------
+
+### PySide6 (Qt for Python)
+
+  Copyright (C) 2024 The Qt Company Ltd.
+  https://doc.qt.io/qtforpython/
+
+  PySide6 is distributed under the GNU Lesser General Public License v3 (LGPLv3).
+  The full text of the LGPLv3 license is included in this distribution in the
+  LICENSE_LGPL file.
+
+  In accordance with Section 4 of the LGPLv3, you may obtain the source code of
+  Qt libraries from The Qt Company at https://www.qt.io/download.
+
+### Python Standard Library
+
+  Copyright (c) 2001-2024 Python Software Foundation.
+  https://www.python.org/
+
+  Licensed under the Python Software Foundation License Version 2.
+  https://docs.python.org/3/license.html
