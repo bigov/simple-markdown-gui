@@ -42,6 +42,8 @@ pip install PySide6==6.7.0
 > **Note:** It is recommended to use a virtual environment to avoid conflicts with other Python projects.
 >
 > ```bash
+> git clone https://github.com/bigov/simple-markdown-gui.git
+> cd simple-markdown-gui
 > python -m pip install --upgrade pip setuptools virtualenv
 > python -m venv .venv
 > # Activate on Linux / macOS:

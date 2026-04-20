@@ -17,7 +17,6 @@ from filesystem import load_file, load_file_by_path, save_current_file
 
 
 class MyWidget(QMainWindow):
-    config_dir = AppPaths.get_assets_dir()
     app_title = "Simple Markdown GUI"
     panel_margin = 4
     panel_spacing = 1
