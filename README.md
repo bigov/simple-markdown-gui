@@ -1,6 +1,6 @@
 # Simple Markdown GUI
 
-A simple open-source Markdown editor with a graphical interface, written in Python using the [PySide6](https://doc.qt.io/qtforpython/) library.
+A simple open-source Markdown notes editor with a graphical interface, written in Python using the [PySide6](https://doc.qt.io/qtforpython/) library.
 
 **License:** MIT
 
