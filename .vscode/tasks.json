@@ -49,6 +49,55 @@
 			],
 			"isBackground": false,
 			"group": "test"
+		},
+		{
+			"label": "Build Windows EXE",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/build_windows.ps1"
+			],
+			"isBackground": false,
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "Create Windows Release ZIP",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/build_release_zip.ps1",
+				"-Version",
+				"${input:releaseVersion}"
+			],
+			"isBackground": false,
+			"group": "build"
+		},
+		{
+			"label": "Clean Release Artifacts",
+			"type": "shell",
+			"command": "powershell.exe",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				"${workspaceFolder}/clean_release_artifacts.ps1",
+				"-CurrentVersion",
+				"${input:releaseVersion}"
+			],
+			"isBackground": false,
+			"group": "build"
 		}
 	],
 	"inputs": [
@@ -57,6 +106,12 @@
 			"type": "promptString",
 			"description": "Relative path to a test file",
 			"default": "tests/test_markdown_roundtrip.py"
+		},
+		{
+			"id": "releaseVersion",
+			"type": "promptString",
+			"description": "Release version for EXE metadata and ZIP name",
+			"default": "1.0.2"
 		}
 	]
 }

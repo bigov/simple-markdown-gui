@@ -95,9 +95,37 @@ The script will:
 
 - install build dependencies from requirements-build.txt into the project virtual environment;
 - package src/app/main.py into dist/simple-markdown-gui.exe;
-- embed the application assets needed at runtime.
+- embed fallback application assets needed at runtime;
+- generate a Windows .ico from the bundled favicon PNG assets;
+- attach Windows executable metadata such as product name, description, and version resource.
 
-At first launch, the executable creates its writable configuration file in %APPDATA%/Simple Markdown GUI/config.ini. This avoids writing into the bundled executable directory.
+The current verified Windows release is 1.0.2.
+
+To set the executable version metadata explicitly:
+
+```powershell
+./build_windows.ps1 -Version 1.0.2
+```
+
+To create a distributable release archive:
+
+```powershell
+./build_release_zip.ps1 -Version 1.0.2
+```
+
+If the executable is already built and you only want to package it into ZIP again:
+
+```powershell
+./build_release_zip.ps1 -Version 1.0.2 -SkipBuild
+```
+
+To remove stale build artifacts, logs, and older release files in one step:
+
+```powershell
+./clean_release_artifacts.ps1 -CurrentVersion 1.0.2
+```
+
+The build also places editable runtime files in dist/assets: config.ini and styles.css. The packaged application uses these external files when they are available. If the executable directory is not writable, it falls back to %APPDATA%/Simple Markdown GUI/assets.
 
 ---
 
