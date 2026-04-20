@@ -83,6 +83,22 @@ simple-markdown-gui/
 python src/app/main.py
 ```
 
+## Building a standalone Windows executable
+
+The project includes a PowerShell build script that creates a self-contained Windows executable with PyInstaller. The resulting file does not depend on a system-wide Python installation.
+
+```powershell
+./build_windows.ps1
+```
+
+The script will:
+
+- install build dependencies from requirements-build.txt into the project virtual environment;
+- package src/app/main.py into dist/simple-markdown-gui.exe;
+- embed the application assets needed at runtime.
+
+At first launch, the executable creates its writable configuration file in %APPDATA%/Simple Markdown GUI/config.ini. This avoids writing into the bundled executable directory.
+
 ---
 
 ## Pre-release check
@@ -94,6 +110,8 @@ python -m unittest tests.test_markdown_roundtrip -v
 ```
 
 For a short release workflow, see [docs/release-checklist.md](docs/release-checklist.md).
+
+For build-specific notes, see [docs/build-windows.md](docs/build-windows.md).
 
 ---
 

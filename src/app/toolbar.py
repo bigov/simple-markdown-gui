@@ -130,6 +130,8 @@ def toggle_preview(widget, action):
             widget.italic_action.setEnabled(False)
         if hasattr(widget, 'strikethrough_action'):
             widget.strikethrough_action.setEnabled(False)
+        if hasattr(widget, 'set_status_mode'):
+            widget.set_status_mode("Режим исходного текста")
     else:
         # Switch back to preview mode
         if hasattr(widget, '_original_markdown'):
@@ -145,6 +147,8 @@ def toggle_preview(widget, action):
             widget.italic_action.setEnabled(True)
         if hasattr(widget, 'strikethrough_action'):
             widget.strikethrough_action.setEnabled(True)
+        if hasattr(widget, 'set_status_mode'):
+            widget.set_status_mode("Режим форматированного редактирования")
 
     widget.editor.document().setModified(was_modified)
     if hasattr(widget, 'update_save_action_state'):

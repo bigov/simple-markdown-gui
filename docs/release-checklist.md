@@ -19,3 +19,9 @@ python -m unittest tests.test_markdown_roundtrip -v
 ```bash
 python src/app/main.py
 ```
+
+1. Build the standalone Windows executable and verify that it starts outside the repository.
+
+```powershell
+./build_windows.ps1
+```

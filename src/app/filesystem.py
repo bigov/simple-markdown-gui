@@ -24,6 +24,8 @@ def _save_markdown_to_path(widget, file_path, update_current_file=False):
         widget.current_file_path = file_path
         widget._original_markdown = markdown_text
         widget._editor_markdown = markdown_text
+        if hasattr(widget, 'notify_current_file_changed'):
+            widget.notify_current_file_changed()
 
     return True
 
@@ -39,6 +41,8 @@ def _display_file(file_path, widget):
         widget.current_file_path = file_path
         widget._original_markdown = text
         widget._editor_markdown = text
+        if hasattr(widget, 'notify_current_file_changed'):
+            widget.notify_current_file_changed()
 
         if file_path.endswith('.md'):
             render_markdown_with_styles(browser, text)
