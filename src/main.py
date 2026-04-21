@@ -1,29 +1,32 @@
+"""Main window and application entry point for Simple Markdown GUI."""
+
 import configparser
 import sys
 import os
 from pathlib import Path
 
-from app_paths import AppPaths
-from markdown_rendering import render_markdown_with_styles
-from markdown_roundtrip import preserve_roundtrip_markdown
-
 from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Slot, QByteArray
 from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QKeySequence, QPalette
-from PySide6.QtWidgets import QApplication, QDockWidget, QFrame, QLabel, QMainWindow, QMessageBox, QTextBrowser, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QDockWidget, QFrame, QLabel, QMainWindow
+from PySide6.QtWidgets import QMessageBox, QTextBrowser, QTextEdit, QVBoxLayout, QWidget
+
+from config import AppConfig
+from markdown_rendering import render_markdown_with_styles
+from markdown_roundtrip import preserve_roundtrip_markdown
 
 from toolbar import create_toolbar
 from sidebar import create_sidebar
 from filesystem import load_file, load_file_by_path, save_current_file
 
-
-class MyWidget(QMainWindow):
+class MyApp(QMainWindow):
+    """Main class Simple Markdown GUI"""
     app_title = "Simple Markdown GUI"
     panel_margin = 4
     panel_spacing = 1
 
     def __init__(self):
         QMainWindow.__init__(self)
-        self.config_path = AppPaths.ensure_config_exists()
+        self.config_path = AppConfig.ensure_config_exists()
         self.browser = QTextBrowser()
         self.editor = QTextEdit()
         self._apply_panel_frame_style(self.browser)
@@ -61,8 +64,8 @@ class MyWidget(QMainWindow):
         config.read(self.config_path)
 
         self.resize(800, 600)
-        
-        base_dir = './'        
+
+        base_dir = './'
         if 'Default' in config:
             base_dir = config.get('Default', 'base_dir', fallback='./')
         self.base_dir = self._resolve_base_dir(base_dir)
@@ -73,7 +76,8 @@ class MyWidget(QMainWindow):
         self.sidebar.clicked.connect(self.on_sidebar_clicked)
         self.sidebar_container = QWidget()
         self.sidebar_layout = QVBoxLayout(self.sidebar_container)
-        self.sidebar_layout.setContentsMargins(self.panel_margin, self.panel_margin, self.panel_margin, self.panel_margin)
+        self.sidebar_layout.setContentsMargins(self.panel_margin, self.panel_margin,
+                                               self.panel_margin, self.panel_margin)
         self.sidebar_layout.setSpacing(0)
         self.sidebar_layout.addWidget(self.sidebar)
         self.sidebar_dock = QDockWidget("Files", self)
@@ -87,7 +91,8 @@ class MyWidget(QMainWindow):
 
         # Create main content layout
         self.content_layout = QVBoxLayout()
-        self.content_layout.setContentsMargins(self.panel_margin, self.panel_margin, self.panel_margin, self.panel_margin)
+        self.content_layout.setContentsMargins(self.panel_margin, self.panel_margin,
+                                               self.panel_margin, self.panel_margin)
         self.content_layout.setSpacing(0)
         self.content_layout.addWidget(self.browser)
 
@@ -114,7 +119,7 @@ class MyWidget(QMainWindow):
         self._pending_sidebar_width = None
         self._panel_sizes_restored = False
         self._restore_window_state(config)
-        
+
         # Hide toolbar initially (show only in edit mode)
         self.toolbar.hide()
         self.update_save_action_state()
@@ -701,6 +706,6 @@ class MyWidget(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    widget = MyWidget()
+    widget = MyApp()
     widget.show()
     sys.exit(app.exec())

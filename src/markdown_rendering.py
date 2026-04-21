@@ -1,12 +1,12 @@
 import markdown
 
-from app_paths import AppPaths
+from config import AppConfig
 
 
 def build_styled_markdown_html(markdown_text):
     html_content = markdown.markdown(markdown_text, extensions=['tables', 'fenced_code'])
 
-    with open(AppPaths.get_styles_path(), 'r', encoding='utf-8') as css_file:
+    with open(AppConfig.get_styles_path(), 'r', encoding='utf-8') as css_file:
         css_content = css_file.read()
 
     return f"""

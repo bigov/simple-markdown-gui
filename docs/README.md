@@ -1,3 +1,3 @@
 # Documentation
 
-Project documentation will be placed here.
+Project documentation location.

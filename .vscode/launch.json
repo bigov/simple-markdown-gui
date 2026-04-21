@@ -5,8 +5,8 @@
             "name": "Run Simple Markdown GUI",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/app/main.py",
-            "python": "${workspaceFolder}/.venv/bin/python",
+            "program": "${workspaceFolder}/src/main.py",
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/src"
@@ -17,8 +17,11 @@
             "type": "debugpy",
             "request": "launch",
             "module": "pytest",
-            "python": "${workspaceFolder}/.venv/bin/python",
-            "args": ["tests", "-v"],
+            "python": "${workspaceFolder}/.venv/Scripts/python.exe",
+            "args": [
+                "tests",
+                "-v"
+            ],
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/src"

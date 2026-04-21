@@ -1,10 +1,12 @@
+"""Configuration management for Simple Markdown GUI."""
 import os
 import shutil
 import sys
 from pathlib import Path
 
 
-class AppPaths:
+class AppConfig:
+    """Utility class for managing application paths and ensuring necessary assets are available."""
     app_name = 'Simple Markdown GUI'
     config_dir_name = 'assets'
     styles_file_name = 'styles.css'

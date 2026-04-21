@@ -3,6 +3,17 @@
     "python.analysis.extraPaths": [
         "${workspaceFolder}/src"
     ],
+    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.useLibraryCodeForTypes": false,
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportAttributeAccessIssue": "none",
+        "reportFunctionMemberAccess": "none"
+    },
+    "pylint.importStrategy": "fromEnvironment",
+    "pylint.cwd": "${workspaceFolder}",
+    "pylint.args": [
+        "--rcfile=.pylintrc"
+    ],
     "editor.formatOnSave": true,
     "[python]": {
         "editor.defaultFormatter": "ms-python.black-formatter",

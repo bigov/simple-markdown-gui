@@ -1,3 +1,6 @@
-# Default folder
+# Project documentation
 
-Тестовый файл тут: [test-code](test-code.md)
+Markdown GUI application project.
+
+ - [Windows Build](build-windows.md)
+ - [Release Checklist](release-checklist.md)

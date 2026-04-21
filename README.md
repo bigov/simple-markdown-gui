@@ -61,9 +61,9 @@ pip install PySide6==6.7.0
 ```
 simple-markdown-gui/
 ├── src/
-│   └── app/
-│       ├── __init__.py
-│       └── main.py          # Application entry point
+│   ├── assets/
+│   ├── config.py
+│   └── main.py              # Application entry point
 ├── tests/                   # Unit tests
 ├── docs/                    # Documentation
 ├── .vscode/                 # VS Code workspace settings
@@ -82,7 +82,7 @@ simple-markdown-gui/
 ## Running the application
 
 ```bash
-python src/app/main.py
+python src/main.py
 ```
 
 ## Building a standalone Windows executable
@@ -96,9 +96,9 @@ The project includes a PowerShell build script that creates a self-contained Win
 The script will:
 
 - install build dependencies from requirements-build.txt into the project virtual environment;
-- package src/app/main.py into dist/simple-markdown-gui.exe;
+- package src/main.py into dist/simple-markdown-gui.exe;
 - embed fallback application assets needed at runtime;
-- generate a Windows .ico from the bundled favicon PNG assets;
+- generate a Windows .ico from src/assets/icon.png;
 - attach Windows executable metadata such as product name, description, and version resource.
 
 The current verified Windows release is 1.0.2.

@@ -31,7 +31,7 @@ dist/simple-markdown-gui.exe
 
 - The executable bundles the Python runtime and required PySide6 dependencies.
 - CSS and config template files are embedded into the executable as fallback defaults.
-- A Windows .ico file is generated from src/app/assets/favicon-160.png during the build.
+- A Windows .ico file is generated from src/assets/icon.png during the build.
 - Version metadata is embedded into the executable resource table.
 - The build writes editable runtime files to dist/assets/config.ini and dist/assets/styles.css.
 - At runtime, the app prefers editable files next to the executable in assets/. If that directory is not writable, it falls back to %APPDATA%/Simple Markdown GUI/assets.

@@ -1,0 +1,7 @@
+[MAIN]
+init-hook=import os, sys; sys.path.insert(0, os.path.join(os.getcwd(), "src"))
+extension-pkg-allow-list=PySide6
+
+[MESSAGES CONTROL]
+disable=no-member,missing-function-docstring,line-too-long,too-few-public-methods,too-many-arguments,too-many-instance-attributes,too-many-statements
+
