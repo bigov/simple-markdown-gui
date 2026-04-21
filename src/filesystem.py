@@ -62,7 +62,10 @@ def _display_file(file_path, widget):
         file_index = widget.file_model.index(file_path)
         if file_index.isValid():
             widget.sidebar.setCurrentIndex(file_index)
-            widget.sidebar.selectionModel().select(file_index, QItemSelectionModel.ClearAndSelect)
+            widget.sidebar.selectionModel().select(
+                file_index,
+                QItemSelectionModel.SelectionFlag.ClearAndSelect,
+            )
             widget.sidebar.scrollTo(file_index)
     except (OSError, UnicodeError) as error:
         print(f"Error loading file: {error}")

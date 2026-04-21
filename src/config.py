@@ -1,11 +1,15 @@
 """Configuration management for Simple Markdown GUI."""
 import configparser
 import os
-from typing import NoReturn
+import ctypes
 from pathlib import Path
+import sys
+from typing import NoReturn
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+WINDOWS_APP_ID = 'MarkdownGui.Application'
 
 class AppConfig:
     """Utility class for managing user application files."""
@@ -15,6 +19,7 @@ class AppConfig:
     appdata_var_name = 'APPDATA'
     startup_error_title = 'Startup error'
     missing_appdata_message = 'Unable to determine the user application data directory from APPDATA.'
+    unsupported_platform_message = 'Only Windows platform is supported.'
 
     @classmethod
     def _get_app_data_dir(cls) -> Path:
@@ -25,11 +30,11 @@ class AppConfig:
 
     @classmethod
     def _abort_missing_app_data_dir(cls) -> NoReturn:
-        cls._show_startup_error(cls.missing_appdata_message)
+        cls.show_startup_error(cls.missing_appdata_message)
         raise SystemExit(1)
 
     @classmethod
-    def _show_startup_error(cls, message: str) -> None:
+    def show_startup_error(cls, message: str) -> None:
         app = QApplication.instance()
         created_app = False
         if app is None:
@@ -40,7 +45,6 @@ class AppConfig:
 
         if created_app:
             app.quit()
-
 
     @classmethod
     def get_config_dir(cls) -> str:
@@ -137,6 +141,44 @@ class AppConfig:
                 output_lines.append(f"{option_name} = {option_value}")
 
         return '\n'.join(output_lines) + '\n'
+
+
+def _get_app_icon_path():
+    base_path = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+    icon_candidates = (
+        base_path / 'resources' / 'icon.png',
+        Path(__file__).resolve().parent / 'resources' / 'icon.png',
+    )
+
+    for icon_path in icon_candidates:
+        if icon_path.is_file():
+            return icon_path
+
+    return None
+
+
+def setup_app_icon(qt_application, window):
+    icon_path = _get_app_icon_path()
+    if icon_path is None:
+        return
+
+    icon = QIcon(str(icon_path))
+    if icon.isNull():
+        return
+
+    qt_application.setWindowIcon(icon)
+    window.setWindowIcon(icon)
+
+
+def configure_app_identity():
+    if sys.platform != 'win32':
+        AppConfig.show_startup_error(AppConfig.unsupported_platform_message)
+        return
+
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
+    except (AttributeError, OSError):
+        return
 
 
 DEFAULT_CONFIG_TEMPLATE = """[Default]

@@ -60,21 +60,41 @@ pip install PySide6==6.7.0
 
 ```
 simple-markdown-gui/
+├── build_windows.ps1         # Build standalone Windows executable
+├── build_release_zip.ps1     # Package release ZIP and checksum
+├── clean_release_artifacts.ps1
+├── docs/                     # Project documentation
+│   ├── index.md
+│   ├── build-windows.md
+│   └── release-checklist.md
+├── release/                  # Release archives and checksums
+├── tools/                    # Build helper scripts
 ├── src/
-│   ├── config.py
-│   ├── main.py              # Application entry point
-│   └── resources/           # Build resources such as the app icon
-├── tests/                   # Unit tests
-├── docs/                    # Documentation
+│   ├── main.py               # Application entry point
+│   ├── master_panel.py       # Central browser/editor panel logic
+│   ├── config.py             # Runtime config and embedded defaults
+│   ├── filesystem.py         # File loading and saving helpers
+│   ├── markdown_rendering.py # Markdown-to-HTML rendering helpers
+│   ├── markdown_roundtrip.py # Stable round-trip markdown preservation
+│   ├── sidebar.py            # File tree sidebar helpers
+│   ├── toolbar.py            # Edit toolbar and formatting actions
+│   └── resources/            # Build resources such as the app icon
+├── tests/                    # Unit and regression tests
+│   ├── test_app_paths.py
+│   ├── test_markdown_roundtrip.py
+│   └── test_master_panel.py
 ├── .vscode/                 # VS Code workspace settings
 │   ├── extensions.json
 │   ├── launch.json
+│   ├── tasks.json
 │   └── settings.json
-├── LICENSE                  # MIT License (this project)
-├── LICENSE_LGPL             # GNU LGPLv3 (PySide6 / Qt)
-├── NOTICE                   # Third-party license notices
+├── LICENSE                   # MIT License (this project)
+├── LICENSE_LGPL              # GNU LGPLv3 (PySide6 / Qt)
+├── NOTICE                    # Third-party license notices
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+├── requirements-build.txt
+└── simple-markdown-gui.spec  # PyInstaller spec file
 ```
 
 ---
@@ -101,30 +121,30 @@ The script will:
 - generate a Windows .ico from src/resources/icon.png;
 - attach Windows executable metadata such as product name, description, and version resource.
 
-The current verified Windows release is 1.0.2.
+The current verified Windows release is 1.0.3.
 
 To set the executable version metadata explicitly:
 
 ```powershell
-./build_windows.ps1 -Version 1.0.2
+./build_windows.ps1 -Version 1.0.3
 ```
 
 To create a distributable release archive:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.2
+./build_release_zip.ps1 -Version 1.0.3
 ```
 
 If the executable is already built and you only want to package it into ZIP again:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.2 -SkipBuild
+./build_release_zip.ps1 -Version 1.0.3 -SkipBuild
 ```
 
 To remove stale build artifacts, logs, and older release files in one step:
 
 ```powershell
-./clean_release_artifacts.ps1 -CurrentVersion 1.0.2
+./clean_release_artifacts.ps1 -CurrentVersion 1.0.3
 ```
 
 At startup, the application always uses the user-specific directory derived from `app_name`: `%APPDATA%/Markdown GUI` on Windows or `~/.config/Markdown GUI` on Unix-like systems. If config.ini or styles.css is missing there, the file is recreated from embedded templates in [src/config.py](src/config.py).

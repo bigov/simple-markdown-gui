@@ -3,71 +3,33 @@
 import configparser
 import sys
 import os
-import ctypes
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Slot, QByteArray
-from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QIcon, QKeySequence, QPalette
+from PySide6.QtCore import Qt, QTimer, QByteArray
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QPalette
 from PySide6.QtWidgets import QApplication, QDockWidget, QFrame, QLabel, QMainWindow
-from PySide6.QtWidgets import QMessageBox, QTextBrowser, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
 
-from config import AppConfig
-from markdown_rendering import render_markdown_with_styles
-from markdown_roundtrip import preserve_roundtrip_markdown
+from config import AppConfig, setup_app_icon, configure_app_identity
+try:
+    from .master_panel import MasterPanelMixin
+except ImportError:
+    from master_panel import MasterPanelMixin
 
 from toolbar import create_toolbar
-from toolbar import toggle_preview
 from sidebar import create_sidebar
 from filesystem import load_file, load_file_by_path, save_current_file
 
 
-WINDOWS_APP_ID = 'SimpleMarkdownGui.Application'
-
-
-def _get_app_icon_path():
-    base_path = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
-    icon_candidates = (
-        base_path / 'resources' / 'icon.png',
-        Path(__file__).resolve().parent / 'resources' / 'icon.png',
-    )
-
-    for icon_path in icon_candidates:
-        if icon_path.is_file():
-            return icon_path
-
-    return None
-
-
-def _apply_app_icon(qt_application, window):
-    icon_path = _get_app_icon_path()
-    if icon_path is None:
-        return
-
-    icon = QIcon(str(icon_path))
-    if icon.isNull():
-        return
-
-    qt_application.setWindowIcon(icon)
-    window.setWindowIcon(icon)
-
-
-def _configure_windows_app_identity():
-    if sys.platform != 'win32':
-        return
-
-    try:
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
-    except (AttributeError, OSError):
-        return
-
-
-class MyApp(QMainWindow):
+class MyApp(MasterPanelMixin, QMainWindow):
     """Main class Simple Markdown GUI"""
     app_title = "Simple Markdown GUI"
     config_section_name = 'Default'
     legacy_window_section_name = 'Window'
     panel_margin = 4
     panel_spacing = 1
+
+    # Class attribute declarations with types for actions assigned during UI setup.
     save_action: QAction
     preview_action: QAction
     bold_action: QAction
@@ -78,32 +40,13 @@ class MyApp(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
         self.config_path = AppConfig.ensure_config_exists()
-        self.browser = QTextBrowser()
-        self.editor = QTextEdit()
-        self._apply_panel_frame_style(self.browser)
-        self._apply_panel_frame_style(self.editor)
-        self.current_editor = self.browser
         self.current_file_path = None
         self._original_markdown = ""  # Store original markdown when in preview mode
         self._editor_markdown = ""
         self._status_mode = "Режим просмотра"
         self._hovered_link = ""
         self._status_message = ""
-
-        self.browser.setCursor(Qt.CursorShape.ArrowCursor)
-        self.browser.viewport().setCursor(Qt.CursorShape.ArrowCursor)
-        self.browser.setMouseTracking(True)
-        self.browser.viewport().setMouseTracking(True)
-        self.browser.setOpenExternalLinks(False)  # Disable automatic link opening
-        self.browser.setOpenLinks(False)  # Disable automatic link opening
-        self.browser.anchorClicked.connect(self.open_link)  # Connect to custom handler
-        self.browser.highlighted.connect(self.on_link_highlighted)
-        self.browser.viewport().installEventFilter(self)
-
-        self.editor.setCursor(Qt.CursorShape.IBeamCursor)
-        self.editor.viewport().setCursor(Qt.CursorShape.IBeamCursor)
-        self.editor.installEventFilter(self)
-        self.editor.document().modificationChanged.connect(self.on_editor_modification_changed)
+        self._initialize_master_panel()
 
         self.toolbar = create_toolbar(self)
         self.toolbar.setObjectName("edit_toolbar")
@@ -142,16 +85,6 @@ class MyApp(QMainWindow):
         self.sidebar_dock.dockLocationChanged.connect(self._sync_panel_layout)
         self.sidebar_dock.visibilityChanged.connect(self._sync_panel_layout)
 
-        # Create main content layout
-        self.content_layout = QVBoxLayout()
-        self.content_layout.setContentsMargins(self.panel_margin, self.panel_margin,
-                                               self.panel_margin, self.panel_margin)
-        self.content_layout.setSpacing(0)
-        self.content_layout.addWidget(self.browser)
-
-        self.content_widget = QWidget()
-        self.content_widget.setLayout(self.content_layout)
-        self.setCentralWidget(self.content_widget)
         self._configure_panel_appearance()
         self._create_menu_bar()
         self.status_message_label = QLabel()
@@ -188,18 +121,6 @@ class MyApp(QMainWindow):
         if self.current_editor == self.editor and not self.confirm_close_editor():
             return
         load_file(self.file_model, index, self)
-
-    def render_markdown(self, editor, markdown_text):
-        render_markdown_with_styles(editor, markdown_text)
-
-    def _set_markdown_cache(self, original_markdown, editor_markdown=None):
-        self._original_markdown = original_markdown
-        if editor_markdown is None:
-            editor_markdown = original_markdown
-        self._editor_markdown = editor_markdown
-
-    def _set_editor_markdown(self, markdown_text):
-        self._editor_markdown = markdown_text
 
     def update_save_action_state(self):
         is_edit_mode = self.current_editor == self.editor
@@ -368,51 +289,6 @@ class MyApp(QMainWindow):
             return
         self._status_message = ""
         self._render_status_message("")
-
-    def _format_hover_link(self, link_text):
-        if not link_text:
-            return ""
-
-        url = QUrl(link_text)
-        if url.scheme() == 'file':
-            local_path = url.toLocalFile()
-            if local_path:
-                formatted_link = os.path.abspath(local_path)
-                if url.hasFragment():
-                    formatted_link = f"{formatted_link}#{url.fragment()}"
-                return self._format_link_relative_to_base_dir(formatted_link)
-
-        if url.scheme():
-            return link_text
-
-        base_dir = os.path.dirname(self.current_file_path) if self.current_file_path else os.getcwd()
-        path_part, separator, fragment = link_text.partition('#')
-
-        if path_part:
-            formatted_link = os.path.abspath(os.path.join(base_dir, path_part))
-        elif self.current_file_path:
-            formatted_link = self.current_file_path
-        else:
-            formatted_link = link_text
-
-        if separator:
-            formatted_link = f"{formatted_link}#{fragment}"
-        return self._format_link_relative_to_base_dir(formatted_link)
-
-    def _format_link_relative_to_base_dir(self, link_text):
-        path_part, separator, fragment = link_text.partition('#')
-        try:
-            common_path = os.path.commonpath([os.path.abspath(path_part), self.base_dir])
-        except ValueError:
-            return link_text
-
-        if common_path != self.base_dir:
-            return link_text
-
-        relative_path = os.path.relpath(path_part, self.base_dir)
-        if separator:
-            return f"{relative_path}#{fragment}"
-        return relative_path
 
     def show_about_dialog(self):
         QMessageBox.about(
@@ -654,134 +530,6 @@ class MyApp(QMainWindow):
         self.notify_current_file_changed()
         self.show_status_message("Файл сохранен", 3000)
 
-    def get_editor_markdown_text(self):
-        if not self.editor.document().isModified():
-            return self._original_markdown
-
-        if hasattr(self, 'preview_action') and self.preview_action.isChecked():
-            return self.editor.toPlainText()
-        self._editor_markdown = self.get_visual_editor_markdown_text()
-        return self._editor_markdown
-
-    def get_visual_editor_markdown_text(self):
-        return preserve_roundtrip_markdown(self._original_markdown, self.editor.toMarkdown())
-
-    def confirm_close_editor(self):
-        if not self.editor.document().isModified():
-            self.switch_to_browse(self._original_markdown)
-            return True
-
-        result = QMessageBox.question(
-            self,
-            "Сохранить изменения",
-            "Текст был изменен. Сохранить изменения в исходный файл?",
-            QMessageBox.StandardButton.Save
-            | QMessageBox.StandardButton.Discard
-            | QMessageBox.StandardButton.Cancel,
-            QMessageBox.StandardButton.Save,
-        )
-
-        if result == QMessageBox.StandardButton.Cancel:
-            return False
-
-        if result == QMessageBox.StandardButton.Save:
-            if self.current_editor != self.editor:
-                return False
-
-            was_modified = self.editor.document().isModified()
-            self.handle_save_action()
-            if was_modified and self.editor.document().isModified():
-                return False
-
-        self.switch_to_browse(self._original_markdown)
-        return True
-
-    def switch_to_edit(self, event):
-        self.content_layout.removeWidget(self.browser)
-        self.browser.hide()
-        self.content_layout.addWidget(self.editor)
-
-        # Load the markdown document directly to keep round-trip saving stable.
-        if hasattr(self, '_original_markdown'):
-            self._editor_markdown = self._original_markdown
-            self.editor.setMarkdown(self._original_markdown)
-
-        self.editor.show()
-        self.editor.setFocus()
-        self.current_editor = self.editor
-        self.toolbar.show()
-
-        # Reset source mode when switching to edit (show preview by default)
-        if hasattr(self, 'preview_action'):
-            self.preview_action.setChecked(False)
-        self.set_status_mode("Режим форматированного редактирования")
-
-        self.editor.document().setModified(False)
-        self.update_save_action_state()
-
-        event.accept()
-
-    def switch_to_browse(self, markdown_text=None):
-        if markdown_text is None:
-            markdown_text = self._original_markdown
-
-        self.content_layout.removeWidget(self.editor)
-        self.editor.hide()
-        self.content_layout.addWidget(self.browser)
-        self.render_markdown(self.browser, markdown_text)
-        self.current_editor = self.browser
-        self.browser.show()
-        self.browser.setFocus()
-        self.toolbar.hide()
-        self.editor.document().setModified(False)
-        self.update_save_action_state()
-        self._clear_link_status_if_needed()
-        self.set_status_mode("Режим просмотра")
-
-        # Reset source mode when switching to browse
-        if hasattr(self, 'preview_action'):
-            self.preview_action.setChecked(False)
-
-    def eventFilter(self, obj, event):
-        if obj == self.browser.viewport() and event.type() == QEvent.Type.MouseButtonDblClick:
-            self.switch_to_edit(event)
-            return True
-        if obj == self.browser.viewport() and event.type() == QEvent.Type.MouseMove:
-            link = self.browser.anchorAt(event.position().toPoint())
-            if link:
-                formatted_link = self._format_hover_link(link)
-                self._hovered_link = formatted_link
-                self.show_status_message(formatted_link)
-            elif self._hovered_link:
-                self._clear_link_status_if_needed()
-        if obj == self.browser.viewport() and event.type() == QEvent.Type.Leave:
-            self._clear_link_status_if_needed()
-        if obj == self.editor and event.type() == QEvent.Type.KeyPress:
-            if event.key() == Qt.Key.Key_Escape:
-                # If source mode is active, switch back to preview
-                if hasattr(self, 'preview_action') and self.preview_action.isChecked():
-                    self.preview_action.setChecked(False)
-                    toggle_preview(self, self.preview_action)
-                    return True
-                return self.confirm_close_editor()
-        return super().eventFilter(obj, event)
-
-    def on_link_highlighted(self, link):
-        if self.current_editor != self.browser:
-            return
-
-        if isinstance(link, QUrl):
-            link_text = link.toString()
-        else:
-            link_text = str(link)
-
-        if link_text:
-            formatted_link = self._format_hover_link(link_text)
-            self._hovered_link = formatted_link
-            self.show_status_message(formatted_link)
-        else:
-            self._clear_link_status_if_needed()
-
     def closeEvent(self, event: QCloseEvent):
         # Save window geometry and dock/toolbar layout to config
         config = configparser.ConfigParser()
@@ -791,25 +539,10 @@ class MyApp(QMainWindow):
         AppConfig.write_config(config)
         event.accept()
 
-    @Slot(QUrl)
-    def open_link(self, url):
-        if url.scheme() == '':
-            # Handle relative URLs as local files
-            url = QUrl.fromLocalFile(url.toString())
-
-        if url.scheme() == 'file' and url.toLocalFile().endswith('.md'):
-            # Load local Markdown file with styles
-            load_file_by_path(url.toLocalFile(), self)
-        else:
-            # Open external links in system browser
-            QDesktopServices.openUrl(url)
-
-
-
 if __name__ == "__main__":
-    _configure_windows_app_identity()
+    configure_app_identity()
     qt_app = QApplication(sys.argv)
     widget = MyApp()
-    _apply_app_icon(qt_app, widget)
+    setup_app_icon(qt_app, widget)
     widget.show()
     sys.exit(qt_app.exec())
