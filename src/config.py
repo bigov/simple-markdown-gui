@@ -248,7 +248,7 @@ DEFAULT_STYLES_TEMPLATE = """/* Styles for Markdown content in QTextBrowser */
 
 /* Body styles */
 body {
-    font-family: 'Adwaita Sans', Arial, sans-serif;
+    font-family: 'Segoe UI', 'Noto Sans', Arial, Helvetica, sans-serif;
     font-size: 11pt;
     color: #333;
     background-color: #fff;
@@ -319,7 +319,7 @@ pre {
 
 code {
     background-color: #f1f1f1;
-    font-family: 'Adwaita Mono', 'Courier New', monospace;
+    font-family: Consolas, 'Cascadia Mono', 'Noto Sans Mono', 'Courier New', monospace;
 }
 
 /* Blockquotes */

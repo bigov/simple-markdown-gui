@@ -134,7 +134,11 @@ def toggle_preview(widget, action):
     was_modified = widget.editor.document().isModified()
 
     if action.isChecked():
-        if hasattr(widget, "get_visual_editor_markdown_text"):
+        # Keep exact source markdown when no visual edits were made,
+        # avoiding Qt toMarkdown() normalization side effects.
+        if not was_modified and hasattr(widget, "_original_markdown"):
+            markdown_text = widget._original_markdown
+        elif hasattr(widget, "get_visual_editor_markdown_text"):
             markdown_text = widget.get_visual_editor_markdown_text()
         else:
             markdown_text = widget.editor.toMarkdown()

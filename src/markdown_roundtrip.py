@@ -14,29 +14,67 @@ class MarkdownChunk:
     separator: str
 
 
+def _fence_marker(line):
+    match = re.match(r"^(`{3,}|~{3,})", line.strip())
+    if not match:
+        return None
+    return match.group(1)
+
+
+def _is_fenced_chunk(lines):
+    if len(lines) < 2:
+        return False
+
+    opening = _fence_marker(lines[0])
+    closing = _fence_marker(lines[-1])
+    if not opening or not closing:
+        return False
+
+    return opening[0] == closing[0]
+
+
 # Splits markdown into comparable chunks while keeping fenced code blocks intact.
 def _split_markdown_chunks(markdown_text):
     chunks = []
     current_block = []
     current_separator = []
     in_fence = False
+    active_fence_char = None
+    # Set to True right after the closing fence line is consumed so that the
+    # next non-blank line always starts a new chunk, even without a blank-line
+    # separator.  Qt's toMarkdown() sometimes omits the blank line that normally
+    # follows a fenced block, which would otherwise merge it with the next chunk.
+    fence_just_closed = False
 
     for line in markdown_text.splitlines(keepends=True):
         stripped = line.strip()
 
         if current_block and not in_fence and stripped == "":
             current_separator.append(line)
+            fence_just_closed = False
             continue
 
-        if current_separator:
-            chunks.append(MarkdownChunk("".join(current_block), "".join(current_separator)))
+        if current_separator or fence_just_closed:
+            if current_block:
+                chunks.append(
+                    MarkdownChunk("".join(current_block), "".join(current_separator))
+                )
             current_block = []
             current_separator = []
+            fence_just_closed = False
 
         current_block.append(line)
 
-        if stripped.startswith("```"):
-            in_fence = not in_fence
+        marker = _fence_marker(stripped)
+        if marker:
+            marker_char = marker[0]
+            if not in_fence:
+                in_fence = True
+                active_fence_char = marker_char
+            elif marker_char == active_fence_char:
+                in_fence = False
+                active_fence_char = None
+                fence_just_closed = True
 
     if current_block or current_separator:
         chunks.append(MarkdownChunk("".join(current_block), "".join(current_separator)))
@@ -61,8 +99,12 @@ def _chunk_signature(chunk):
         return ""
 
     lines = block.splitlines()
-    if lines and lines[0].strip().startswith("```") and lines[-1].strip().startswith("```"):
-        return "\n".join(line.rstrip() for line in lines[1:-1]).strip()
+    if _is_fenced_chunk(lines):
+        # Qt may inject extra blank lines inside fenced blocks during toMarkdown().
+        # Ignore blank-only lines for chunk matching, while preserving real code lines.
+        return "\n".join(
+            line.rstrip() for line in lines[1:-1] if line.strip() != ""
+        ).strip()
 
     normalized_lines = []
     for line in lines:
@@ -105,8 +147,14 @@ def preserve_roundtrip_markdown(original_markdown, edited_markdown):
     merged_chunks = []
     matcher = SequenceMatcher(None, original_signatures, edited_signatures)
 
-    for tag, original_start, original_end, edited_start, edited_end in matcher.get_opcodes():
-        if tag == 'equal':
+    for (
+        tag,
+        original_start,
+        original_end,
+        edited_start,
+        edited_end,
+    ) in matcher.get_opcodes():
+        if tag == "equal":
             merged_chunks.extend(original_chunks[original_start:original_end])
             continue
 
