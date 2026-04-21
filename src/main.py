@@ -28,7 +28,7 @@ def _get_app_icon_path():
     base_path = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
     icon_candidates = (
         base_path / 'resources' / 'icon.png',
-        base_path / 'src' / 'resources' / 'icon.png',
+        Path(__file__).resolve().parent / 'resources' / 'icon.png',
     )
 
     for icon_path in icon_candidates:
