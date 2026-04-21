@@ -10,7 +10,6 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $releaseDir = Join-Path $repoRoot 'release'
 $distExe = Join-Path $repoRoot 'dist\simple-markdown-gui.exe'
-$distAssetsDir = Join-Path $repoRoot 'dist\assets'
 
 if (-not $ReleaseName) {
     $ReleaseName = "simple-markdown-gui-windows-x64-v$Version"
@@ -58,9 +57,6 @@ try {
     New-Item -ItemType Directory -Path $stagingDir | Out-Null
 
     Copy-Item $distExe -Destination (Join-Path $stagingDir 'simple-markdown-gui.exe')
-    if (Test-Path $distAssetsDir) {
-        Copy-Item $distAssetsDir -Destination (Join-Path $stagingDir 'assets') -Recurse -Force
-    }
     Copy-Item (Join-Path $repoRoot 'README.md') -Destination (Join-Path $stagingDir 'README.md')
     Copy-Item (Join-Path $repoRoot 'LICENSE') -Destination (Join-Path $stagingDir 'LICENSE')
     Copy-Item (Join-Path $repoRoot 'LICENSE_LGPL') -Destination (Join-Path $stagingDir 'LICENSE_LGPL')

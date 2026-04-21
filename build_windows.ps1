@@ -15,19 +15,13 @@ $distDir = Join-Path $repoRoot 'dist'
 $buildRoot = Join-Path $env:TEMP ('simple-markdown-gui-pyinstaller-' + (Get-Date -Format 'yyyyMMddHHmmss'))
 $pyInstallerDistDir = Join-Path $buildRoot 'dist'
 $workDir = Join-Path $buildRoot 'work'
-$specDir = Join-Path $buildRoot 'spec'
 $resourceDir = Join-Path $buildRoot 'resources'
-$entryPoint = Join-Path $repoRoot 'src\main.py'
-$modulePath = Join-Path $repoRoot 'src'
-$stylesPath = Join-Path $repoRoot 'src\assets\styles.css'
-$configSamplePath = Join-Path $repoRoot 'src\assets\config_sample.ini'
-$faviconPath = Join-Path $repoRoot 'src\assets\icon.png'
+$faviconPath = Join-Path $repoRoot 'src\resources\icon.png'
 $resourceHelper = Join-Path $repoRoot 'tools\prepare_windows_build_resources.py'
 $specFilePath = Join-Path $repoRoot 'simple-markdown-gui.spec'
 $iconPath = Join-Path $resourceDir 'simple-markdown-gui.ico'
 $versionFilePath = Join-Path $resourceDir 'version_info.txt'
 $exeName = 'simple-markdown-gui.exe'
-$distAssetsDir = Join-Path $distDir 'assets'
 
 if (-not (Test-Path $pythonExe)) {
     throw 'Virtual environment interpreter was not found at .venv\Scripts\python.exe'
@@ -102,10 +96,6 @@ try {
     }
 
     Copy-Item $builtExePath -Destination $targetExePath -Force
-
-    New-Item -ItemType Directory -Path $distAssetsDir -Force | Out-Null
-    Copy-Item $stylesPath -Destination (Join-Path $distAssetsDir 'styles.css') -Force
-    Copy-Item $configSamplePath -Destination (Join-Path $distAssetsDir 'config.ini') -Force
 
     Write-Host ''
     Write-Host 'Build completed successfully:'

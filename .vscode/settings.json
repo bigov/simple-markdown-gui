@@ -3,10 +3,10 @@
     "python.analysis.extraPaths": [
         "${workspaceFolder}/src"
     ],
-    "python.analysis.typeCheckingMode": "off",
+    "python.analysis.typeCheckingMode": "basic",
     "python.analysis.useLibraryCodeForTypes": false,
     "python.analysis.diagnosticSeverityOverrides": {
-        "reportAttributeAccessIssue": "none",
+        "reportAttributeAccessIssue": "error",
         "reportFunctionMemberAccess": "none"
     },
     "pylint.importStrategy": "fromEnvironment",

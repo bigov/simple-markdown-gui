@@ -26,6 +26,8 @@ python src/main.py
 ./build_windows.ps1 -Version 1.0.2
 ```
 
+Confirm that the first launch recreates missing config.ini or styles.css in `%APPDATA%/Markdown GUI` from embedded defaults when either file is removed.
+
 1. Build the Windows release ZIP and attach the generated archive and checksum to the release.
 
 ```powershell

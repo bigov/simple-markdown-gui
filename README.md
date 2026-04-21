@@ -61,9 +61,9 @@ pip install PySide6==6.7.0
 ```
 simple-markdown-gui/
 ├── src/
-│   ├── assets/
 │   ├── config.py
-│   └── main.py              # Application entry point
+│   ├── main.py              # Application entry point
+│   └── resources/           # Build resources such as the app icon
 ├── tests/                   # Unit tests
 ├── docs/                    # Documentation
 ├── .vscode/                 # VS Code workspace settings
@@ -97,8 +97,8 @@ The script will:
 
 - install build dependencies from requirements-build.txt into the project virtual environment;
 - package src/main.py into dist/simple-markdown-gui.exe;
-- embed fallback application assets needed at runtime;
-- generate a Windows .ico from src/assets/icon.png;
+- embed fallback application templates in the Python sources;
+- generate a Windows .ico from src/resources/icon.png;
 - attach Windows executable metadata such as product name, description, and version resource.
 
 The current verified Windows release is 1.0.2.
@@ -127,7 +127,7 @@ To remove stale build artifacts, logs, and older release files in one step:
 ./clean_release_artifacts.ps1 -CurrentVersion 1.0.2
 ```
 
-The build also places editable runtime files in dist/assets: config.ini and styles.css. The packaged application uses these external files when they are available. If the executable directory is not writable, it falls back to %APPDATA%/Simple Markdown GUI/assets.
+At startup, the application always uses the user-specific directory derived from `app_name`: `%APPDATA%/Markdown GUI` on Windows or `~/.config/Markdown GUI` on Unix-like systems. If config.ini or styles.css is missing there, the file is recreated from embedded templates in [src/config.py](src/config.py).
 
 ---
 

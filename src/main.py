@@ -21,8 +21,16 @@ from filesystem import load_file, load_file_by_path, save_current_file
 class MyApp(QMainWindow):
     """Main class Simple Markdown GUI"""
     app_title = "Simple Markdown GUI"
+    config_section_name = 'Default'
+    legacy_window_section_name = 'Window'
     panel_margin = 4
     panel_spacing = 1
+    save_action: QAction
+    preview_action: QAction
+    bold_action: QAction
+    underline_action: QAction
+    italic_action: QAction
+    strikethrough_action: QAction
 
     def __init__(self):
         QMainWindow.__init__(self)
@@ -39,8 +47,8 @@ class MyApp(QMainWindow):
         self._hovered_link = ""
         self._status_message = ""
 
-        self.browser.setCursor(Qt.ArrowCursor)
-        self.browser.viewport().setCursor(Qt.ArrowCursor)
+        self.browser.setCursor(Qt.CursorShape.ArrowCursor)
+        self.browser.viewport().setCursor(Qt.CursorShape.ArrowCursor)
         self.browser.setMouseTracking(True)
         self.browser.viewport().setMouseTracking(True)
         self.browser.setOpenExternalLinks(False)  # Disable automatic link opening
@@ -49,15 +57,15 @@ class MyApp(QMainWindow):
         self.browser.highlighted.connect(self.on_link_highlighted)
         self.browser.viewport().installEventFilter(self)
 
-        self.editor.setCursor(Qt.IBeamCursor)
-        self.editor.viewport().setCursor(Qt.IBeamCursor)
+        self.editor.setCursor(Qt.CursorShape.IBeamCursor)
+        self.editor.viewport().setCursor(Qt.CursorShape.IBeamCursor)
         self.editor.installEventFilter(self)
         self.editor.document().modificationChanged.connect(self.on_editor_modification_changed)
 
         self.toolbar = create_toolbar(self)
         self.toolbar.setObjectName("edit_toolbar")
         self.toolbar.setMovable(False)
-        self.addToolBar(Qt.TopToolBarArea, self.toolbar)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.toolbar)
 
         # Load window size and base dir from config
         config = configparser.ConfigParser()
@@ -82,10 +90,12 @@ class MyApp(QMainWindow):
         self.sidebar_layout.addWidget(self.sidebar)
         self.sidebar_dock = QDockWidget("Files", self)
         self.sidebar_dock.setObjectName("sidebar_dock")
-        self.sidebar_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.sidebar_dock.setAllowedAreas(
+            Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
+        )
         self.sidebar_dock.setWidget(self.sidebar_container)
         self.sidebar_dock.setTitleBarWidget(QWidget())
-        self.addDockWidget(Qt.LeftDockWidgetArea, self.sidebar_dock)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar_dock)
         self.sidebar_dock.dockLocationChanged.connect(self._sync_panel_layout)
         self.sidebar_dock.visibilityChanged.connect(self._sync_panel_layout)
 
@@ -108,7 +118,9 @@ class MyApp(QMainWindow):
         self.status_context_label = QLabel()
         self.modified_status_label = QLabel()
         self.modified_status_label.setMinimumWidth(90)
-        self.modified_status_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.modified_status_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
         self.statusBar().addPermanentWidget(self.modified_status_label)
         self.statusBar().addPermanentWidget(self.status_context_label)
         self.status_message_timer = QTimer(self)
@@ -162,12 +174,12 @@ class MyApp(QMainWindow):
         self._sync_panel_layout()
 
     def _apply_panel_frame_style(self, panel):
-        border_color = panel.palette().color(QPalette.Mid).lighter(150).name()
-        bottom_border_color = panel.palette().color(QPalette.Mid).lighter(112).name()
-        background_color = panel.palette().color(QPalette.Base).name()
+        border_color = panel.palette().color(QPalette.ColorRole.Mid).lighter(150).name()
+        bottom_border_color = panel.palette().color(QPalette.ColorRole.Mid).lighter(112).name()
+        background_color = panel.palette().color(QPalette.ColorRole.Base).name()
 
-        panel.setFrameShape(QFrame.StyledPanel)
-        panel.setFrameShadow(QFrame.Plain)
+        panel.setFrameShape(QFrame.Shape.StyledPanel)
+        panel.setFrameShadow(QFrame.Shadow.Plain)
         panel.setLineWidth(1)
         panel.setMidLineWidth(0)
         panel.setAutoFillBackground(True)
@@ -192,10 +204,10 @@ class MyApp(QMainWindow):
 
         if self.sidebar_dock.isVisible():
             dock_area = self.dockWidgetArea(self.sidebar_dock)
-            if dock_area == Qt.LeftDockWidgetArea:
+            if dock_area == Qt.DockWidgetArea.LeftDockWidgetArea:
                 sidebar_right = inner_margin
                 content_left = inner_margin
-            elif dock_area == Qt.RightDockWidgetArea:
+            elif dock_area == Qt.DockWidgetArea.RightDockWidgetArea:
                 sidebar_left = inner_margin
                 content_right = inner_margin
 
@@ -207,7 +219,7 @@ class MyApp(QMainWindow):
         file_menu.addAction(self.save_action)
 
         self.exit_action = QAction("Exit", self)
-        self.exit_action.setShortcut(QKeySequence.Quit)
+        self.exit_action.setShortcut(QKeySequence.StandardKey.Quit)
         self.exit_action.triggered.connect(self.close)
         file_menu.addSeparator()
         file_menu.addAction(self.exit_action)
@@ -377,14 +389,47 @@ class MyApp(QMainWindow):
         self.setGeometry(x, y, width, height)
         return True
 
+    def _get_config_value(self, config, option_name, fallback='', legacy_option_name=None):
+        if config.has_option(self.config_section_name, option_name):
+            return config.get(self.config_section_name, option_name, fallback=fallback)
+
+        legacy_option_name = legacy_option_name or option_name
+        if config.has_option(self.legacy_window_section_name, legacy_option_name):
+            return config.get(self.legacy_window_section_name, legacy_option_name, fallback=fallback)
+
+        return fallback
+
+    def _get_config_int(self, config, option_name, fallback=0, legacy_option_name=None):
+        if config.has_option(self.config_section_name, option_name):
+            try:
+                return config.getint(self.config_section_name, option_name)
+            except ValueError:
+                return fallback
+
+        legacy_option_name = legacy_option_name or option_name
+        if config.has_option(self.legacy_window_section_name, legacy_option_name):
+            try:
+                return config.getint(self.legacy_window_section_name, legacy_option_name)
+            except ValueError:
+                return fallback
+
+        return fallback
+
     def _restore_window_position(self, config, width, height):
-        if 'Window' not in config:
+        if not any(
+            config.has_option(self.config_section_name, option_name)
+            or config.has_option(self.legacy_window_section_name, legacy_option_name)
+            for option_name, legacy_option_name in (
+                ('window_left', 'left'),
+                ('window_top', 'top'),
+            )
+        ):
             return False
 
         try:
-            left = config.getint('Window', 'left')
-            top = config.getint('Window', 'top')
-        except (configparser.NoOptionError, ValueError):
+            left = self._get_config_int(config, 'window_left', legacy_option_name='left')
+            top = self._get_config_int(config, 'window_top', legacy_option_name='top')
+        except ValueError:
             return False
 
         self.setGeometry(left, top, width, height)
@@ -408,7 +453,11 @@ class MyApp(QMainWindow):
             self.sidebar_dock.hide()
         else:
             self.sidebar_dock.show()
-            dock_area = Qt.RightDockWidgetArea if sidebar_state == 'right' else Qt.LeftDockWidgetArea
+            dock_area = (
+                Qt.DockWidgetArea.RightDockWidgetArea
+                if sidebar_state == 'right'
+                else Qt.DockWidgetArea.LeftDockWidgetArea
+            )
             self.addDockWidget(dock_area, self.sidebar_dock)
 
         toolbar_state = state_fields.get('toolbar', 'hidden')
@@ -416,12 +465,12 @@ class MyApp(QMainWindow):
         return True
 
     def _restore_window_layout(self, config):
-        if 'Window' not in config:
+        if self.config_section_name not in config and self.legacy_window_section_name not in config:
             return False
 
-        window_state = config.get('Window', 'window_state', fallback='').strip().lower()
-        sidebar_position = config.get('Window', 'sidebar_position', fallback='').strip().lower()
-        toolbar_visibility = config.get('Window', 'toolbar_visibility', fallback='').strip().lower()
+        window_state = self._get_config_value(config, 'window_state').strip().lower()
+        sidebar_position = self._get_config_value(config, 'sidebar_position').strip().lower()
+        toolbar_visibility = self._get_config_value(config, 'toolbar_visibility').strip().lower()
 
         if not any((window_state, sidebar_position, toolbar_visibility)):
             return False
@@ -437,7 +486,11 @@ class MyApp(QMainWindow):
             self.sidebar_dock.hide()
         else:
             self.sidebar_dock.show()
-            dock_area = Qt.RightDockWidgetArea if sidebar_position == 'right' else Qt.LeftDockWidgetArea
+            dock_area = (
+                Qt.DockWidgetArea.RightDockWidgetArea
+                if sidebar_position == 'right'
+                else Qt.DockWidgetArea.LeftDockWidgetArea
+            )
             self.addDockWidget(dock_area, self.sidebar_dock)
 
         self.toolbar.setVisible(toolbar_visibility == 'visible')
@@ -453,7 +506,7 @@ class MyApp(QMainWindow):
 
         if not self.sidebar_dock.isVisible():
             sidebar_state = 'hidden'
-        elif self.dockWidgetArea(self.sidebar_dock) == Qt.RightDockWidgetArea:
+        elif self.dockWidgetArea(self.sidebar_dock) == Qt.DockWidgetArea.RightDockWidgetArea:
             sidebar_state = 'right'
         else:
             sidebar_state = 'left'
@@ -462,14 +515,14 @@ class MyApp(QMainWindow):
         return window_state, sidebar_state, toolbar_state
 
     def _restore_window_state(self, config):
-        width = config.getint('Window', 'width', fallback=800)
-        height = config.getint('Window', 'height', fallback=600)
+        width = self._get_config_int(config, 'window_width', fallback=800, legacy_option_name='width')
+        height = self._get_config_int(config, 'window_height', fallback=600, legacy_option_name='height')
         self.resize(width, height)
         self._queue_panel_sizes_restore(config)
 
         restored_position = self._restore_window_position(config, width, height)
 
-        geometry_value = config.get('Window', 'geometry', fallback='') if 'Window' in config else ''
+        geometry_value = self._get_config_value(config, 'window_geometry', legacy_option_name='geometry')
         if geometry_value and not restored_position:
             if not self._restore_human_geometry(geometry_value, width, height):
                 geometry = QByteArray.fromBase64(geometry_value.encode('ascii'))
@@ -478,7 +531,7 @@ class MyApp(QMainWindow):
 
         restored_layout = self._restore_window_layout(config)
 
-        state_value = config.get('Window', 'state', fallback='') if 'Window' in config else ''
+        state_value = self._get_config_value(config, 'window_legacy_state', legacy_option_name='state')
         if state_value and not restored_layout:
             if not self._restore_human_state(state_value):
                 state = QByteArray.fromBase64(state_value.encode('ascii'))
@@ -486,29 +539,28 @@ class MyApp(QMainWindow):
                     self.restoreState(state)
 
     def _save_window_state(self, config):
-        if not config.has_section('Window'):
-            config.add_section('Window')
+        if not config.has_section(self.config_section_name):
+            config.add_section(self.config_section_name)
 
         geometry = self.geometry()
-        config.set('Window', 'width', str(self.width()))
-        config.set('Window', 'height', str(self.height()))
-        config.set('Window', 'left', str(geometry.x()))
-        config.set('Window', 'top', str(geometry.y()))
-        config.set('Window', 'sidebar_width', str(self.sidebar_dock.width()))
-        config.remove_option('Window', 'geometry')
+        config.set(self.config_section_name, 'window_width', str(self.width()))
+        config.set(self.config_section_name, 'window_height', str(self.height()))
+        config.set(self.config_section_name, 'window_left', str(geometry.x()))
+        config.set(self.config_section_name, 'window_top', str(geometry.y()))
+        config.set(self.config_section_name, 'sidebar_width', str(self.sidebar_dock.width()))
+        config.remove_option(self.config_section_name, 'window_geometry')
         window_state, sidebar_state, toolbar_state = self._serialize_state()
-        config.set('Window', 'window_state', window_state)
-        config.set('Window', 'sidebar_position', sidebar_state)
-        config.set('Window', 'toolbar_visibility', toolbar_state)
-        config.remove_option('Window', 'state')
+        config.set(self.config_section_name, 'window_state', window_state)
+        config.set(self.config_section_name, 'sidebar_position', sidebar_state)
+        config.set(self.config_section_name, 'toolbar_visibility', toolbar_state)
+        config.remove_option(self.config_section_name, 'window_legacy_state')
+        if config.has_section(self.legacy_window_section_name):
+            config.remove_section(self.legacy_window_section_name)
         if config.has_section('Panels'):
             config.remove_section('Panels')
 
     def _queue_panel_sizes_restore(self, config):
-        try:
-            sidebar_width = config.getint('Window', 'sidebar_width', fallback=0)
-        except ValueError:
-            sidebar_width = 0
+        sidebar_width = self._get_config_int(config, 'sidebar_width', fallback=0)
 
         if sidebar_width <= 0 and 'Panels' in config:
             try:
@@ -529,7 +581,7 @@ class MyApp(QMainWindow):
 
         available_width = max(1, self.sidebar_dock.width() + self.content_widget.width())
         sidebar_width = min(self._pending_sidebar_width, available_width - 1)
-        self.resizeDocks([self.sidebar_dock], [sidebar_width], Qt.Horizontal)
+        self.resizeDocks([self.sidebar_dock], [sidebar_width], Qt.Orientation.Horizontal)
         self._panel_sizes_restored = True
 
     def showEvent(self, event):
@@ -571,14 +623,16 @@ class MyApp(QMainWindow):
             self,
             "Сохранить изменения",
             "Текст был изменен. Сохранить изменения в исходный файл?",
-            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
-            QMessageBox.Save,
+            QMessageBox.StandardButton.Save
+            | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Save,
         )
 
-        if result == QMessageBox.Cancel:
+        if result == QMessageBox.StandardButton.Cancel:
             return False
 
-        if result == QMessageBox.Save:
+        if result == QMessageBox.StandardButton.Save:
             if self.current_editor != self.editor:
                 return False
 
@@ -594,12 +648,12 @@ class MyApp(QMainWindow):
         self.content_layout.removeWidget(self.browser)
         self.browser.hide()
         self.content_layout.addWidget(self.editor)
-        
+
         # Load the markdown document directly to keep round-trip saving stable.
         if hasattr(self, '_original_markdown'):
             self._editor_markdown = self._original_markdown
             self.editor.setMarkdown(self._original_markdown)
-        
+
         self.editor.show()
         self.editor.setFocus()
         self.current_editor = self.editor
@@ -612,7 +666,7 @@ class MyApp(QMainWindow):
 
         self.editor.document().setModified(False)
         self.update_save_action_state()
-        
+
         event.accept()
 
     def switch_to_browse(self, markdown_text=None):
@@ -631,16 +685,16 @@ class MyApp(QMainWindow):
         self.update_save_action_state()
         self._clear_link_status_if_needed()
         self.set_status_mode("Режим просмотра")
-        
+
         # Reset source mode when switching to browse
         if hasattr(self, 'preview_action'):
             self.preview_action.setChecked(False)
 
     def eventFilter(self, obj, event):
-        if obj == self.browser.viewport() and event.type() == QEvent.MouseButtonDblClick:
+        if obj == self.browser.viewport() and event.type() == QEvent.Type.MouseButtonDblClick:
             self.switch_to_edit(event)
             return True
-        if obj == self.browser.viewport() and event.type() == QEvent.MouseMove:
+        if obj == self.browser.viewport() and event.type() == QEvent.Type.MouseMove:
             link = self.browser.anchorAt(event.position().toPoint())
             if link:
                 formatted_link = self._format_hover_link(link)
@@ -648,10 +702,10 @@ class MyApp(QMainWindow):
                 self.show_status_message(formatted_link)
             elif self._hovered_link:
                 self._clear_link_status_if_needed()
-        if obj == self.browser.viewport() and event.type() == QEvent.Leave:
+        if obj == self.browser.viewport() and event.type() == QEvent.Type.Leave:
             self._clear_link_status_if_needed()
-        if obj == self.editor and event.type() == QEvent.KeyPress:
-            if event.key() == Qt.Key_Escape:
+        if obj == self.editor and event.type() == QEvent.Type.KeyPress:
+            if event.key() == Qt.Key.Key_Escape:
                 # If source mode is active, switch back to preview
                 if hasattr(self, 'preview_action') and self.preview_action.isChecked():
                     self.preview_action.setChecked(False)
@@ -686,8 +740,7 @@ class MyApp(QMainWindow):
         config.read(self.config_path)
         self._save_window_state(config)
 
-        with open(self.config_path, 'w', encoding='utf-8') as configfile:
-            config.write(configfile)
+        AppConfig.write_config(config)
         event.accept()
 
     @Slot(QUrl)
