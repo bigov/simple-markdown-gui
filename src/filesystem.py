@@ -1,3 +1,5 @@
+"""File loading and saving helpers for the application."""
+
 import os
 from PySide6.QtWidgets import QFileDialog
 from PySide6.QtCore import QItemSelectionModel
@@ -22,8 +24,11 @@ def _save_markdown_to_path(widget, file_path, update_current_file=False):
 
     if update_current_file:
         widget.current_file_path = file_path
-        widget._original_markdown = markdown_text
-        widget._editor_markdown = markdown_text
+        if hasattr(widget, '_set_markdown_cache'):
+            getattr(widget, '_set_markdown_cache')(markdown_text, markdown_text)
+        else:
+            setattr(widget, '_original_markdown', markdown_text)
+            setattr(widget, '_editor_markdown', markdown_text)
         if hasattr(widget, 'notify_current_file_changed'):
             widget.notify_current_file_changed()
 
@@ -39,8 +44,11 @@ def _display_file(file_path, widget):
             text = f.read()
 
         widget.current_file_path = file_path
-        widget._original_markdown = text
-        widget._editor_markdown = text
+        if hasattr(widget, '_set_markdown_cache'):
+            getattr(widget, '_set_markdown_cache')(text, text)
+        else:
+            setattr(widget, '_original_markdown', text)
+            setattr(widget, '_editor_markdown', text)
         if hasattr(widget, 'notify_current_file_changed'):
             widget.notify_current_file_changed()
 
@@ -56,8 +64,8 @@ def _display_file(file_path, widget):
             widget.sidebar.setCurrentIndex(file_index)
             widget.sidebar.selectionModel().select(file_index, QItemSelectionModel.ClearAndSelect)
             widget.sidebar.scrollTo(file_index)
-    except Exception as e:
-        print(f"Error loading file: {e}")
+    except (OSError, UnicodeError) as error:
+        print(f"Error loading file: {error}")
 
 
 def load_file(file_model, index, widget):

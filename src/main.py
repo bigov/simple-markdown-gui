@@ -3,10 +3,11 @@
 import configparser
 import sys
 import os
+import ctypes
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt, QTimer, QUrl, Slot, QByteArray
-from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QKeySequence, QPalette
+from PySide6.QtGui import QAction, QCloseEvent, QDesktopServices, QIcon, QKeySequence, QPalette
 from PySide6.QtWidgets import QApplication, QDockWidget, QFrame, QLabel, QMainWindow
 from PySide6.QtWidgets import QMessageBox, QTextBrowser, QTextEdit, QVBoxLayout, QWidget
 
@@ -15,8 +16,50 @@ from markdown_rendering import render_markdown_with_styles
 from markdown_roundtrip import preserve_roundtrip_markdown
 
 from toolbar import create_toolbar
+from toolbar import toggle_preview
 from sidebar import create_sidebar
 from filesystem import load_file, load_file_by_path, save_current_file
+
+
+WINDOWS_APP_ID = 'SimpleMarkdownGui.Application'
+
+
+def _get_app_icon_path():
+    base_path = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+    icon_candidates = (
+        base_path / 'resources' / 'icon.png',
+        base_path / 'src' / 'resources' / 'icon.png',
+    )
+
+    for icon_path in icon_candidates:
+        if icon_path.is_file():
+            return icon_path
+
+    return None
+
+
+def _apply_app_icon(qt_application, window):
+    icon_path = _get_app_icon_path()
+    if icon_path is None:
+        return
+
+    icon = QIcon(str(icon_path))
+    if icon.isNull():
+        return
+
+    qt_application.setWindowIcon(icon)
+    window.setWindowIcon(icon)
+
+
+def _configure_windows_app_identity():
+    if sys.platform != 'win32':
+        return
+
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(WINDOWS_APP_ID)
+    except (AttributeError, OSError):
+        return
+
 
 class MyApp(QMainWindow):
     """Main class Simple Markdown GUI"""
@@ -148,6 +191,15 @@ class MyApp(QMainWindow):
 
     def render_markdown(self, editor, markdown_text):
         render_markdown_with_styles(editor, markdown_text)
+
+    def _set_markdown_cache(self, original_markdown, editor_markdown=None):
+        self._original_markdown = original_markdown
+        if editor_markdown is None:
+            editor_markdown = original_markdown
+        self._editor_markdown = editor_markdown
+
+    def _set_editor_markdown(self, markdown_text):
+        self._editor_markdown = markdown_text
 
     def update_save_action_state(self):
         is_edit_mode = self.current_editor == self.editor
@@ -709,13 +761,9 @@ class MyApp(QMainWindow):
                 # If source mode is active, switch back to preview
                 if hasattr(self, 'preview_action') and self.preview_action.isChecked():
                     self.preview_action.setChecked(False)
-                    # Trigger the toggle_preview function to switch back to HTML
-                    from toolbar import toggle_preview
                     toggle_preview(self, self.preview_action)
                     return True
-                else:
-                    # Otherwise, switch to browse mode
-                    return self.confirm_close_editor()
+                return self.confirm_close_editor()
         return super().eventFilter(obj, event)
 
     def on_link_highlighted(self, link):
@@ -748,7 +796,7 @@ class MyApp(QMainWindow):
         if url.scheme() == '':
             # Handle relative URLs as local files
             url = QUrl.fromLocalFile(url.toString())
-        
+
         if url.scheme() == 'file' and url.toLocalFile().endswith('.md'):
             # Load local Markdown file with styles
             load_file_by_path(url.toLocalFile(), self)
@@ -757,8 +805,11 @@ class MyApp(QMainWindow):
             QDesktopServices.openUrl(url)
 
 
+
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    _configure_windows_app_identity()
+    qt_app = QApplication(sys.argv)
     widget = MyApp()
+    _apply_app_icon(qt_app, widget)
     widget.show()
-    sys.exit(app.exec())
+    sys.exit(qt_app.exec())

@@ -1,3 +1,5 @@
+"""Toolbar creation and editing actions."""
+
 from PySide6.QtGui import QAction, QFont, QKeySequence, QTextCharFormat
 from PySide6.QtWidgets import QToolBar
 
@@ -18,7 +20,7 @@ def create_toolbar(widget):
     widget.preview_action = preview_action  # Store reference for external access
 
     bold_action = QAction("Bold", widget)
-    bold_action.setShortcut(QKeySequence.Bold)
+    bold_action.setShortcut(QKeySequence.StandardKey.Bold)
     bold_action.triggered.connect(lambda: toggle_bold(widget))
     toolbar.addAction(bold_action)
     widget.addAction(bold_action)
@@ -27,7 +29,7 @@ def create_toolbar(widget):
     widget.bold_action = bold_action  # Store reference for external access
 
     underline_action = QAction("Underline", widget)
-    underline_action.setShortcut(QKeySequence.Underline)
+    underline_action.setShortcut(QKeySequence.StandardKey.Underline)
     underline_action.triggered.connect(lambda: toggle_underline(widget))
     toolbar.addAction(underline_action)
     widget.addAction(underline_action)
@@ -36,7 +38,7 @@ def create_toolbar(widget):
     widget.underline_action = underline_action  # Store reference for external access
 
     italic_action = QAction("Italic", widget)
-    italic_action.setShortcut(QKeySequence.Italic)
+    italic_action.setShortcut(QKeySequence.StandardKey.Italic)
     italic_action.triggered.connect(lambda: toggle_italic(widget))
     toolbar.addAction(italic_action)
     widget.addAction(italic_action)
@@ -62,10 +64,10 @@ def toggle_bold(widget):
 
     selected_format = cursor.charFormat()
     new_format = QTextCharFormat(selected_format)
-    if selected_format.fontWeight() == QFont.Bold:
-        new_format.setFontWeight(QFont.Normal)
+    if selected_format.fontWeight() == QFont.Weight.Bold:
+        new_format.setFontWeight(QFont.Weight.Normal)
     else:
-        new_format.setFontWeight(QFont.Bold)
+        new_format.setFontWeight(QFont.Weight.Bold)
 
     cursor.mergeCharFormat(new_format)
     widget.current_editor.mergeCurrentCharFormat(new_format)
@@ -110,43 +112,38 @@ def toggle_strikethrough(widget):
     widget.current_editor.mergeCurrentCharFormat(new_format)
 
 
+def _set_format_actions_enabled(widget, enabled):
+    for action_name in ('bold_action', 'underline_action', 'italic_action', 'strikethrough_action'):
+        if hasattr(widget, action_name):
+            getattr(widget, action_name).setEnabled(enabled)
+
+
+def _cache_editor_markdown(widget, markdown_text):
+    if hasattr(widget, '_set_editor_markdown'):
+        getattr(widget, '_set_editor_markdown')(markdown_text)
+    else:
+        setattr(widget, '_editor_markdown', markdown_text)
+
+
 def toggle_preview(widget, action):
     was_modified = widget.editor.document().isModified()
 
     if action.isChecked():
-        # Switch to source (plain text) mode
         if hasattr(widget, 'get_visual_editor_markdown_text'):
             markdown_text = widget.get_visual_editor_markdown_text()
         else:
             markdown_text = widget.editor.toMarkdown()
-        widget._editor_markdown = markdown_text
+        _cache_editor_markdown(widget, markdown_text)
         widget.editor.setPlainText(markdown_text)
-        # Disable formatting buttons in source mode
-        if hasattr(widget, 'bold_action'):
-            widget.bold_action.setEnabled(False)
-        if hasattr(widget, 'underline_action'):
-            widget.underline_action.setEnabled(False)
-        if hasattr(widget, 'italic_action'):
-            widget.italic_action.setEnabled(False)
-        if hasattr(widget, 'strikethrough_action'):
-            widget.strikethrough_action.setEnabled(False)
+        _set_format_actions_enabled(widget, False)
         if hasattr(widget, 'set_status_mode'):
             widget.set_status_mode("Режим исходного текста")
     else:
-        # Switch back to preview mode
         if hasattr(widget, '_original_markdown'):
             markdown_text = widget.editor.toPlainText()
-            widget._editor_markdown = markdown_text
+            _cache_editor_markdown(widget, markdown_text)
             widget.editor.setMarkdown(markdown_text)
-        # Enable formatting buttons in preview mode
-        if hasattr(widget, 'bold_action'):
-            widget.bold_action.setEnabled(True)
-        if hasattr(widget, 'underline_action'):
-            widget.underline_action.setEnabled(True)
-        if hasattr(widget, 'italic_action'):
-            widget.italic_action.setEnabled(True)
-        if hasattr(widget, 'strikethrough_action'):
-            widget.strikethrough_action.setEnabled(True)
+        _set_format_actions_enabled(widget, True)
         if hasattr(widget, 'set_status_mode'):
             widget.set_status_mode("Режим форматированного редактирования")
 

@@ -1,7 +1,4 @@
-# This module protects Markdown round-tripping in the visual editor.
-# It preserves unchanged parts of the original document, compares edited blocks
-# with their source versions, and fixes cases where Qt inherits heading markup
-# for newly inserted paragraphs.
+"""Helpers that preserve stable Markdown round-tripping in the visual editor."""
 
 import re
 from dataclasses import dataclass
@@ -11,6 +8,8 @@ from difflib import SequenceMatcher
 # Stores a markdown block together with the blank lines that follow it.
 @dataclass
 class MarkdownChunk:
+    """Markdown block paired with the blank-line separator that follows it."""
+
     block: str
     separator: str
 

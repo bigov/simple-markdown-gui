@@ -1,3 +1,5 @@
+"""Markdown rendering helpers with CSS styling."""
+
 import markdown
 
 from config import AppConfig

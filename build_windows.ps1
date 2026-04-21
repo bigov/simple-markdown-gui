@@ -23,10 +23,12 @@ $iconPath = Join-Path $resourceDir 'simple-markdown-gui.ico'
 $versionFilePath = Join-Path $resourceDir 'version_info.txt'
 $exeName = 'simple-markdown-gui.exe'
 
+
 if (-not (Test-Path $pythonExe)) {
     throw 'Virtual environment interpreter was not found at .venv\Scripts\python.exe'
 }
 
+# Build from the repository root so relative paths in the spec file stay stable.
 Push-Location $repoRoot
 
 try {
