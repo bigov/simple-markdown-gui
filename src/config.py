@@ -1,4 +1,5 @@
 """Configuration management for Simple Markdown GUI."""
+
 import configparser
 import os
 import ctypes
@@ -9,24 +10,67 @@ from typing import NoReturn
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-WINDOWS_APP_ID = 'MarkdownGui.Application'
+WINDOWS_APP_ID = "MarkdownGui.Application"
+
 
 class AppConfig:
     """Utility class for managing user application files."""
-    app_name = 'Markdown GUI'
-    styles_file_name = 'styles.css'
-    config_file_name = 'config.ini'
-    appdata_var_name = 'APPDATA'
-    startup_error_title = 'Startup error'
-    missing_appdata_message = 'Unable to determine the user application data directory from APPDATA.'
-    unsupported_platform_message = 'Only Windows platform is supported.'
+
+    app_name = "Markdown GUI"
+    styles_file_name = "styles.css"
+    config_file_name = "config.ini"
+    localappdata_var_name = "LOCALAPPDATA"
+    startup_error_title = "Startup error"
+    missing_appdata_message = (
+        "Unable to determine the user application data directory from LOCALAPPDATA."
+    )
+    unsupported_platform_message = "Only Windows platform is supported."
 
     @classmethod
     def _get_app_data_dir(cls) -> Path:
-        appdata_dir = os.environ.get(cls.appdata_var_name)
-        if appdata_dir:
-            return Path(appdata_dir) / cls.app_name
+        appdata_dir = cls._get_environment_local_app_data_dir()
+        if appdata_dir is not None:
+            return appdata_dir / cls.app_name
+
         cls._abort_missing_app_data_dir()
+
+    @classmethod
+    def _get_environment_local_app_data_dir(cls) -> Path | None:
+        appdata_dir = os.environ.get(cls.localappdata_var_name)
+        if appdata_dir:
+            return Path(appdata_dir)
+        return None
+
+    @classmethod
+    def _get_legacy_package_app_data_dir(cls) -> Path | None:
+        local_app_data_dir = os.environ.get(cls.localappdata_var_name)
+        if not local_app_data_dir:
+            return None
+
+        packages_dir = Path(local_app_data_dir) / "Packages"
+        if not packages_dir.is_dir():
+            return None
+
+        package_roaming_dirs = sorted(packages_dir.glob("*/LocalCache/Roaming"))
+        for roaming_dir in package_roaming_dirs:
+            legacy_dir = roaming_dir / cls.app_name
+            if legacy_dir.exists():
+                return legacy_dir
+        return None
+
+    @classmethod
+    def _migrate_legacy_user_files(cls, app_data_dir: Path) -> None:
+        legacy_dir = cls._get_legacy_package_app_data_dir()
+        if legacy_dir is None or legacy_dir == app_data_dir or not legacy_dir.exists():
+            return
+
+        for file_name in (cls.config_file_name, cls.styles_file_name):
+            source_path = legacy_dir / file_name
+            target_path = app_data_dir / file_name
+            if source_path.exists() and not target_path.exists():
+                target_path.write_text(
+                    source_path.read_text(encoding="utf-8"), encoding="utf-8"
+                )
 
     @classmethod
     def _abort_missing_app_data_dir(cls) -> NoReturn:
@@ -62,14 +106,15 @@ class AppConfig:
     def ensure_user_files_exist(cls) -> str:
         app_data_dir = cls._get_app_data_dir()
         app_data_dir.mkdir(parents=True, exist_ok=True)
+        cls._migrate_legacy_user_files(app_data_dir)
 
         config_path = app_data_dir / cls.config_file_name
         if not config_path.exists():
-            config_path.write_text(DEFAULT_CONFIG_TEMPLATE, encoding='utf-8')
+            config_path.write_text(DEFAULT_CONFIG_TEMPLATE, encoding="utf-8")
 
         styles_path = app_data_dir / cls.styles_file_name
         if not styles_path.exists():
-            styles_path.write_text(DEFAULT_STYLES_TEMPLATE, encoding='utf-8')
+            styles_path.write_text(DEFAULT_STYLES_TEMPLATE, encoding="utf-8")
 
         return str(app_data_dir)
 
@@ -81,7 +126,7 @@ class AppConfig:
     @classmethod
     def write_config(cls, config: configparser.ConfigParser) -> str:
         config_path = Path(cls.ensure_config_exists())
-        config_path.write_text(cls._render_config_text(config), encoding='utf-8')
+        config_path.write_text(cls._render_config_text(config), encoding="utf-8")
         return str(config_path)
 
     @classmethod
@@ -103,20 +148,22 @@ class AppConfig:
         for line in DEFAULT_CONFIG_TEMPLATE.splitlines():
             stripped_line = line.strip()
 
-            if stripped_line.startswith('[') and stripped_line.endswith(']'):
+            if stripped_line.startswith("[") and stripped_line.endswith("]"):
                 current_section = stripped_line[1:-1]
                 seen_sections.add(current_section)
                 output_lines.append(line)
                 continue
 
-            if not stripped_line or stripped_line.startswith((';', '#')):
+            if not stripped_line or stripped_line.startswith((";", "#")):
                 output_lines.append(line)
                 continue
 
-            if '=' in line and current_section:
-                option_name, _, _ = line.partition('=')
+            if "=" in line and current_section:
+                option_name, _, _ = line.partition("=")
                 option_name = option_name.strip()
-                option_value = rendered_config.get(current_section, option_name, fallback='')
+                option_value = rendered_config.get(
+                    current_section, option_name, fallback=""
+                )
                 seen_options.add((current_section, option_name))
                 output_lines.append(f"{option_name} = {option_value}")
                 continue
@@ -133,21 +180,21 @@ class AppConfig:
                 continue
 
             if section not in seen_sections:
-                if output_lines and output_lines[-1] != '':
-                    output_lines.append('')
-                output_lines.append(f'[{section}]')
+                if output_lines and output_lines[-1] != "":
+                    output_lines.append("")
+                output_lines.append(f"[{section}]")
 
             for option_name, option_value in extra_options:
                 output_lines.append(f"{option_name} = {option_value}")
 
-        return '\n'.join(output_lines) + '\n'
+        return "\n".join(output_lines) + "\n"
 
 
 def _get_app_icon_path():
-    base_path = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+    base_path = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
     icon_candidates = (
-        base_path / 'resources' / 'icon.png',
-        Path(__file__).resolve().parent / 'resources' / 'icon.png',
+        base_path / "resources" / "icon.png",
+        Path(__file__).resolve().parent / "resources" / "icon.png",
     )
 
     for icon_path in icon_candidates:
@@ -171,7 +218,7 @@ def setup_app_icon(qt_application, window):
 
 
 def configure_app_identity():
-    if sys.platform != 'win32':
+    if sys.platform != "win32":
         AppConfig.show_startup_error(AppConfig.unsupported_platform_message)
         return
 

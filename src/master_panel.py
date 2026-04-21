@@ -1,47 +1,34 @@
-"""Master panel setup and mode switching helpers."""
+"""Master panel setup and hyperlink helpers for the editor-only layout."""
 
 import os
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
-from PySide6.QtCore import QEvent, Qt, QUrl
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QMainWindow, QMessageBox, QTextBrowser, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, QObject, Qt, QUrl
+from PySide6.QtGui import QCursor, QDesktopServices
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QMessageBox,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
 from filesystem import load_file_by_path
 from markdown_rendering import render_markdown_with_styles
 from markdown_roundtrip import preserve_roundtrip_markdown
-from toolbar import toggle_preview
 
 if TYPE_CHECKING:
     from PySide6.QtGui import QAction
     from PySide6.QtWidgets import QToolBar
 
-    class MasterPanelBase(QMainWindow):
-        """Type-checking base so Pylance sees QMainWindow APIs on the mixin."""
-else:
-    class MasterPanelBase:
-        """Runtime-only empty base to keep the mixin hierarchy lightweight."""
 
-
-class MasterPanelMixin(MasterPanelBase):
-    """Encapsulates the central browser/editor area for the main window.
-
-    There are two MasterPanel* classes on purpose:
-    - MasterPanelBase is a tiny compatibility layer for static analysis.
-    - MasterPanelMixin contains the actual shared panel behavior used by MyApp.
-
-    During type checking, MasterPanelBase inherits from QMainWindow so Pylance
-    understands Qt methods like setCentralWidget and eventFilter. At runtime,
-    MasterPanelBase is an empty class, which keeps the multiple-inheritance chain
-    simple and avoids changing application behavior.
-    """
+class MasterPanel:
+    """Provides the central editor panel behavior for the main window."""
 
     panel_margin: int
     base_dir: str
     current_file_path: str | None
-    current_editor: QTextBrowser | QTextEdit
-    browser: QTextBrowser
     editor: QTextEdit
     content_layout: QVBoxLayout
     content_widget: QWidget
@@ -61,26 +48,19 @@ class MasterPanelMixin(MasterPanelBase):
         show_status_message: Callable[..., None]
 
     def _initialize_master_panel(self):
-        self.browser = QTextBrowser()
         self.editor = QTextEdit()
-        self._apply_panel_frame_style(self.browser)
         self._apply_panel_frame_style(self.editor)
-        self.current_editor = self.browser
-
-        self.browser.setCursor(Qt.CursorShape.ArrowCursor)
-        self.browser.viewport().setCursor(Qt.CursorShape.ArrowCursor)
-        self.browser.setMouseTracking(True)
-        self.browser.viewport().setMouseTracking(True)
-        self.browser.setOpenExternalLinks(False)
-        self.browser.setOpenLinks(False)
-        self.browser.anchorClicked.connect(self.open_link)
-        self.browser.highlighted.connect(self.on_link_highlighted)
-        self.browser.viewport().installEventFilter(self)
 
         self.editor.setCursor(Qt.CursorShape.IBeamCursor)
         self.editor.viewport().setCursor(Qt.CursorShape.IBeamCursor)
-        self.editor.installEventFilter(self)
-        self.editor.document().modificationChanged.connect(self.on_editor_modification_changed)
+        self.editor.setMouseTracking(True)
+        self.editor.viewport().setMouseTracking(True)
+        event_filter = cast(QObject, self)
+        self.editor.installEventFilter(event_filter)
+        self.editor.viewport().installEventFilter(event_filter)
+        self.editor.document().modificationChanged.connect(
+            self.on_editor_modification_changed
+        )
 
         self.content_layout = QVBoxLayout()
         self.content_layout.setContentsMargins(
@@ -90,11 +70,12 @@ class MasterPanelMixin(MasterPanelBase):
             self.panel_margin,
         )
         self.content_layout.setSpacing(0)
-        self.content_layout.addWidget(self.browser)
+        self.content_layout.addWidget(self.editor)
 
         self.content_widget = QWidget()
         self.content_widget.setLayout(self.content_layout)
-        self.setCentralWidget(self.content_widget)
+        main_window = cast(QMainWindow, self)
+        main_window.setCentralWidget(self.content_widget)
 
     def render_markdown(self, editor, markdown_text):
         render_markdown_with_styles(editor, markdown_text)
@@ -112,21 +93,22 @@ class MasterPanelMixin(MasterPanelBase):
         if not self.editor.document().isModified():
             return self._original_markdown
 
-        if hasattr(self, 'preview_action') and self.preview_action.isChecked():
+        if hasattr(self, "preview_action") and self.preview_action.isChecked():
             return self.editor.toPlainText()
         self._editor_markdown = self.get_visual_editor_markdown_text()
         return self._editor_markdown
 
     def get_visual_editor_markdown_text(self):
-        return preserve_roundtrip_markdown(self._original_markdown, self.editor.toMarkdown())
+        return preserve_roundtrip_markdown(
+            self._original_markdown, self.editor.toMarkdown()
+        )
 
     def confirm_close_editor(self):
         if not self.editor.document().isModified():
-            self.switch_to_browse(self._original_markdown)
             return True
 
         result = QMessageBox.question(
-            self,
+            cast(QWidget, self),
             "Сохранить изменения",
             "Текст был изменен. Сохранить изменения в исходный файл?",
             QMessageBox.StandardButton.Save
@@ -139,114 +121,113 @@ class MasterPanelMixin(MasterPanelBase):
             return False
 
         if result == QMessageBox.StandardButton.Save:
-            if self.current_editor != self.editor:
-                return False
-
             was_modified = self.editor.document().isModified()
             self.handle_save_action()
             if was_modified and self.editor.document().isModified():
                 return False
 
-        self.switch_to_browse(self._original_markdown)
         return True
 
-    def switch_to_edit(self, event):
-        self.content_layout.removeWidget(self.browser)
-        self.browser.hide()
-        self.content_layout.addWidget(self.editor)
-
-        if hasattr(self, '_original_markdown'):
-            self._editor_markdown = self._original_markdown
-            self.editor.setMarkdown(self._original_markdown)
-
-        self.editor.show()
-        self.editor.setFocus()
-        self.current_editor = self.editor
-        self.toolbar.show()
-
-        if hasattr(self, 'preview_action'):
-            self.preview_action.setChecked(False)
-        self.set_status_mode("Режим форматированного редактирования")
-
-        self.editor.document().setModified(False)
-        self.update_save_action_state()
-
-        event.accept()
-
-    def switch_to_browse(self, markdown_text=None):
-        if markdown_text is None:
-            markdown_text = self._original_markdown
-
-        self.content_layout.removeWidget(self.editor)
-        self.editor.hide()
-        self.content_layout.addWidget(self.browser)
-        self.render_markdown(self.browser, markdown_text)
-        self.current_editor = self.browser
-        self.browser.show()
-        self.browser.setFocus()
-        self.toolbar.hide()
-        self.editor.document().setModified(False)
-        self.update_save_action_state()
-        self._clear_link_status_if_needed()
-        self.set_status_mode("Режим просмотра")
-
-        if hasattr(self, 'preview_action'):
-            self.preview_action.setChecked(False)
-
     def eventFilter(self, obj, event):
-        if obj == self.browser.viewport() and event.type() == QEvent.Type.MouseButtonDblClick:
-            self.switch_to_edit(event)
-            return True
-        if obj == self.browser.viewport() and event.type() == QEvent.Type.MouseMove:
-            link = self.browser.anchorAt(event.position().toPoint())
+        if obj == self.editor.viewport() and event.type() == QEvent.Type.MouseMove:
+            link = self.editor.anchorAt(event.position().toPoint())
             if link:
                 formatted_link = self._format_hover_link(link)
                 self._hovered_link = formatted_link
                 self.show_status_message(formatted_link)
             elif self._hovered_link:
                 self._clear_link_status_if_needed()
-        if obj == self.browser.viewport() and event.type() == QEvent.Type.Leave:
+            self._update_editor_link_cursor(link)
+        if (
+            obj == self.editor.viewport()
+            and event.type() == QEvent.Type.MouseButtonRelease
+            and event.button() == Qt.MouseButton.LeftButton
+        ):
+            link = self.editor.anchorAt(event.position().toPoint())
+            if link:
+                self._open_link_from_editor(link)
+                return True
+        if obj == self.editor.viewport() and event.type() == QEvent.Type.Leave:
             self._clear_link_status_if_needed()
+            self._set_editor_cursor_shape(Qt.CursorShape.IBeamCursor)
         if obj == self.editor and event.type() == QEvent.Type.KeyPress:
             if event.key() == Qt.Key.Key_Escape:
-                if hasattr(self, 'preview_action') and self.preview_action.isChecked():
-                    self.preview_action.setChecked(False)
-                    toggle_preview(self, self.preview_action)
-                    return True
                 return self.confirm_close_editor()
-        return super().eventFilter(obj, event)
+        return QMainWindow.eventFilter(cast(QMainWindow, self), obj, event)
 
-    def on_link_highlighted(self, link):
-        if self.current_editor != self.browser:
+    def _set_editor_cursor_shape(self, cursor_shape):
+        self.editor.setCursor(cursor_shape)
+        self.editor.viewport().setCursor(cursor_shape)
+
+    def _update_editor_link_cursor(self, link=None):
+        if link is None:
+            viewport_pos = self.editor.viewport().mapFromGlobal(QCursor.pos())
+            link = self.editor.anchorAt(viewport_pos)
+
+        if link:
+            self._set_editor_cursor_shape(Qt.CursorShape.PointingHandCursor)
+            return
+        self._set_editor_cursor_shape(Qt.CursorShape.IBeamCursor)
+
+    def _open_link_from_editor(self, link_text):
+        url = self._resolve_link_url(link_text)
+        if not url.isValid():
             return
 
-        if isinstance(link, QUrl):
-            link_text = link.toString()
-        else:
-            link_text = str(link)
+        if self._is_internal_markdown_link(url):
+            if not self.confirm_close_editor():
+                return
+            self._load_markdown_link_into_editor(url)
+            return
 
-        if link_text:
-            formatted_link = self._format_hover_link(link_text)
-            self._hovered_link = formatted_link
-            self.show_status_message(formatted_link)
-        else:
-            self._clear_link_status_if_needed()
+        QDesktopServices.openUrl(url)
 
-    def open_link(self, url):
-        if url.scheme() == '':
-            url = QUrl.fromLocalFile(url.toString())
+    def _resolve_link_url(self, link_text):
+        url = QUrl(link_text)
+        if url.scheme() == "file":
+            return url
+        if url.scheme():
+            return url
 
-        if url.scheme() == 'file' and url.toLocalFile().endswith('.md'):
-            load_file_by_path(url.toLocalFile(), self)
+        base_dir = (
+            os.path.dirname(self.current_file_path)
+            if self.current_file_path
+            else os.getcwd()
+        )
+        path_part, _, fragment = link_text.partition("#")
+
+        if path_part:
+            local_path = os.path.abspath(os.path.join(base_dir, path_part))
+        elif self.current_file_path:
+            local_path = self.current_file_path
         else:
-            QDesktopServices.openUrl(url)
+            local_path = os.path.abspath(base_dir)
+
+        resolved_url = QUrl.fromLocalFile(local_path)
+        if fragment:
+            resolved_url.setFragment(fragment)
+        return resolved_url
+
+    def _is_internal_markdown_link(self, url):
+        return url.scheme() == "file" and url.toLocalFile().lower().endswith(".md")
+
+    def _load_markdown_link_into_editor(self, url):
+        load_file_by_path(url.toLocalFile(), self)
+        self.editor.setFocus()
+        self._update_editor_link_cursor()
+
+        is_source_mode = (
+            hasattr(self, "preview_action") and self.preview_action.isChecked()
+        )
+        if url.hasFragment() and not is_source_mode:
+            self.editor.scrollToAnchor(url.fragment())
 
     def _format_hover_link(self, link_text):
         if not link_text:
             return ""
 
         url = QUrl(link_text)
-        if url.scheme() == 'file':
+        if url.scheme() == "file":
             local_path = url.toLocalFile()
             if local_path:
                 formatted_link = os.path.abspath(local_path)
@@ -257,8 +238,12 @@ class MasterPanelMixin(MasterPanelBase):
         if url.scheme():
             return link_text
 
-        base_dir = os.path.dirname(self.current_file_path) if self.current_file_path else os.getcwd()
-        path_part, separator, fragment = link_text.partition('#')
+        base_dir = (
+            os.path.dirname(self.current_file_path)
+            if self.current_file_path
+            else os.getcwd()
+        )
+        path_part, separator, fragment = link_text.partition("#")
 
         if path_part:
             formatted_link = os.path.abspath(os.path.join(base_dir, path_part))
@@ -272,9 +257,11 @@ class MasterPanelMixin(MasterPanelBase):
         return self._format_link_relative_to_base_dir(formatted_link)
 
     def _format_link_relative_to_base_dir(self, link_text):
-        path_part, separator, fragment = link_text.partition('#')
+        path_part, separator, fragment = link_text.partition("#")
         try:
-            common_path = os.path.commonpath([os.path.abspath(path_part), self.base_dir])
+            common_path = os.path.commonpath(
+                [os.path.abspath(path_part), self.base_dir]
+            )
         except ValueError:
             return link_text
 

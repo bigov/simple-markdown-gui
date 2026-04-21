@@ -11,21 +11,23 @@ from PySide6.QtWidgets import QApplication, QDockWidget, QFrame, QLabel, QMainWi
 from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
 
 from config import AppConfig, setup_app_icon, configure_app_identity
+
 try:
-    from .master_panel import MasterPanelMixin
+    from .master_panel import MasterPanel
 except ImportError:
-    from master_panel import MasterPanelMixin
+    from master_panel import MasterPanel
 
 from toolbar import create_toolbar
 from sidebar import create_sidebar
 from filesystem import load_file, load_file_by_path, save_current_file
 
 
-class MyApp(MasterPanelMixin, QMainWindow):
+class MyApp(MasterPanel, QMainWindow):
     """Main class Simple Markdown GUI"""
+
     app_title = "Simple Markdown GUI"
-    config_section_name = 'Default'
-    legacy_window_section_name = 'Window'
+    config_section_name = "Default"
+    legacy_window_section_name = "Window"
     panel_margin = 4
     panel_spacing = 1
 
@@ -43,7 +45,7 @@ class MyApp(MasterPanelMixin, QMainWindow):
         self.current_file_path = None
         self._original_markdown = ""  # Store original markdown when in preview mode
         self._editor_markdown = ""
-        self._status_mode = "Режим просмотра"
+        self._status_mode = "Режим форматированного редактирования"
         self._hovered_link = ""
         self._status_message = ""
         self._initialize_master_panel()
@@ -59,19 +61,20 @@ class MyApp(MasterPanelMixin, QMainWindow):
 
         self.resize(800, 600)
 
-        base_dir = './'
-        if 'Default' in config:
-            base_dir = config.get('Default', 'base_dir', fallback='./')
+        base_dir = "./"
+        if "Default" in config:
+            base_dir = config.get("Default", "base_dir", fallback="./")
         self.base_dir = self._resolve_base_dir(base_dir)
 
-        # Create sidebar with file browser
+        # Create sidebar with file list
         self.sidebar, self.file_model = create_sidebar(base_dir)
         self._apply_panel_frame_style(self.sidebar)
         self.sidebar.clicked.connect(self.on_sidebar_clicked)
         self.sidebar_container = QWidget()
         self.sidebar_layout = QVBoxLayout(self.sidebar_container)
-        self.sidebar_layout.setContentsMargins(self.panel_margin, self.panel_margin,
-                                               self.panel_margin, self.panel_margin)
+        self.sidebar_layout.setContentsMargins(
+            self.panel_margin, self.panel_margin, self.panel_margin, self.panel_margin
+        )
         self.sidebar_layout.setSpacing(0)
         self.sidebar_layout.addWidget(self.sidebar)
         self.sidebar_dock = QDockWidget("Files", self)
@@ -108,30 +111,24 @@ class MyApp(MasterPanelMixin, QMainWindow):
         self._panel_sizes_restored = False
         self._restore_window_state(config)
 
-        # Hide toolbar initially (show only in edit mode)
-        self.toolbar.hide()
+        self.toolbar.show()
         self.update_save_action_state()
 
-        startup_file = os.path.join(self.base_dir, 'index.md')
+        startup_file = os.path.join(self.base_dir, "index.md")
         if os.path.isfile(startup_file):
             load_file_by_path(startup_file, self)
 
     def on_sidebar_clicked(self, index):
         """Handle sidebar file selection."""
-        if self.current_editor == self.editor and not self.confirm_close_editor():
+        if not self.confirm_close_editor():
             return
         load_file(self.file_model, index, self)
 
     def update_save_action_state(self):
-        is_edit_mode = self.current_editor == self.editor
         is_modified = self.editor.document().isModified()
 
-        if hasattr(self, 'save_action'):
-            self.save_action.setEnabled(
-                is_edit_mode
-                and is_modified
-                and bool(self.current_file_path)
-            )
+        if hasattr(self, "save_action"):
+            self.save_action.setEnabled(is_modified and bool(self.current_file_path))
         self._update_modified_indicator()
         self._update_edit_actions_state()
         self._update_window_title()
@@ -148,7 +145,9 @@ class MyApp(MasterPanelMixin, QMainWindow):
 
     def _apply_panel_frame_style(self, panel):
         border_color = panel.palette().color(QPalette.ColorRole.Mid).lighter(150).name()
-        bottom_border_color = panel.palette().color(QPalette.ColorRole.Mid).lighter(112).name()
+        bottom_border_color = (
+            panel.palette().color(QPalette.ColorRole.Mid).lighter(112).name()
+        )
         background_color = panel.palette().color(QPalette.ColorRole.Base).name()
 
         panel.setFrameShape(QFrame.Shape.StyledPanel)
@@ -156,7 +155,7 @@ class MyApp(MasterPanelMixin, QMainWindow):
         panel.setLineWidth(1)
         panel.setMidLineWidth(0)
         panel.setAutoFillBackground(True)
-        if hasattr(panel, 'viewport'):
+        if hasattr(panel, "viewport"):
             panel.viewport().setAutoFillBackground(True)
         panel.setStyleSheet(
             f"border-top: 1px solid {border_color};"
@@ -184,8 +183,12 @@ class MyApp(MasterPanelMixin, QMainWindow):
                 sidebar_left = inner_margin
                 content_right = inner_margin
 
-        self.content_layout.setContentsMargins(content_left, outer_margin, content_right, outer_margin)
-        self.sidebar_layout.setContentsMargins(sidebar_left, outer_margin, sidebar_right, outer_margin)
+        self.content_layout.setContentsMargins(
+            content_left, outer_margin, content_right, outer_margin
+        )
+        self.sidebar_layout.setContentsMargins(
+            sidebar_left, outer_margin, sidebar_right, outer_margin
+        )
 
     def _create_menu_bar(self):
         file_menu = self.menuBar().addMenu("&File")
@@ -222,7 +225,7 @@ class MyApp(MasterPanelMixin, QMainWindow):
             self.status_message_timer.start(timeout)
 
     def _is_source_mode(self):
-        return self.current_editor == self.editor and hasattr(self, 'preview_action') and self.preview_action.isChecked()
+        return hasattr(self, "preview_action") and self.preview_action.isChecked()
 
     def set_status_mode(self, mode):
         self._status_mode = mode
@@ -238,10 +241,12 @@ class MyApp(MasterPanelMixin, QMainWindow):
         return "Без файла"
 
     def _update_status_context(self):
-        self.status_context_label.setText(f"{self._status_mode} | {self._current_file_label()}")
+        self.status_context_label.setText(
+            f"{self._status_mode} | {self._current_file_label()}"
+        )
 
     def _update_modified_indicator(self):
-        if self.current_editor == self.editor and self.editor.document().isModified():
+        if self.editor.document().isModified():
             self.modified_status_label.setText("Изменено")
         else:
             self.modified_status_label.setText("")
@@ -250,20 +255,24 @@ class MyApp(MasterPanelMixin, QMainWindow):
         title = self.app_title
         if self.current_file_path:
             title = f"{os.path.basename(self.current_file_path)} - {self.app_title}"
-        if self.current_editor == self.editor and self.editor.document().isModified():
+        if self.editor.document().isModified():
             title = f"* {title}"
         self.setWindowTitle(title)
 
     def _update_edit_actions_state(self):
-        is_edit_mode = self.current_editor == self.editor
         is_source_mode = self._is_source_mode()
-        can_format = is_edit_mode and not is_source_mode
+        can_format = not is_source_mode
 
-        if hasattr(self, 'edit_menu'):
-            self.edit_menu.setEnabled(is_edit_mode)
-        if hasattr(self, 'preview_action'):
-            self.preview_action.setEnabled(is_edit_mode)
-        for action_name in ('bold_action', 'underline_action', 'italic_action', 'strikethrough_action'):
+        if hasattr(self, "edit_menu"):
+            self.edit_menu.setEnabled(True)
+        if hasattr(self, "preview_action"):
+            self.preview_action.setEnabled(True)
+        for action_name in (
+            "bold_action",
+            "underline_action",
+            "italic_action",
+            "strikethrough_action",
+        ):
             if hasattr(self, action_name):
                 getattr(self, action_name).setEnabled(can_format)
 
@@ -279,12 +288,12 @@ class MyApp(MasterPanelMixin, QMainWindow):
     def _resolve_base_dir(self, base_dir):
         base_path = Path(base_dir).resolve()
         if not base_path.exists():
-            base_path = Path('./').resolve()
+            base_path = Path("./").resolve()
         return str(base_path)
 
     def _restore_status_message(self):
         self.status_message_timer.stop()
-        if self._hovered_link and self.current_editor == self.browser:
+        if self._hovered_link:
             self._render_status_message(self._hovered_link)
             return
         self._status_message = ""
@@ -299,8 +308,8 @@ class MyApp(MasterPanelMixin, QMainWindow):
 
     def _parse_state_fields(self, value):
         fields = {}
-        for part in value.split(','):
-            key, separator, raw_value = part.partition('=')
+        for part in value.split(","):
+            key, separator, raw_value = part.partition("=")
             if not separator:
                 continue
             fields[key.strip().lower()] = raw_value.strip().lower()
@@ -309,21 +318,25 @@ class MyApp(MasterPanelMixin, QMainWindow):
     def _restore_human_geometry(self, geometry_value, width, height):
         geometry_fields = self._parse_state_fields(geometry_value)
         try:
-            x = int(geometry_fields['x'])
-            y = int(geometry_fields['y'])
+            x = int(geometry_fields["x"])
+            y = int(geometry_fields["y"])
         except (KeyError, ValueError):
             return False
 
         self.setGeometry(x, y, width, height)
         return True
 
-    def _get_config_value(self, config, option_name, fallback='', legacy_option_name=None):
+    def _get_config_value(
+        self, config, option_name, fallback="", legacy_option_name=None
+    ):
         if config.has_option(self.config_section_name, option_name):
             return config.get(self.config_section_name, option_name, fallback=fallback)
 
         legacy_option_name = legacy_option_name or option_name
         if config.has_option(self.legacy_window_section_name, legacy_option_name):
-            return config.get(self.legacy_window_section_name, legacy_option_name, fallback=fallback)
+            return config.get(
+                self.legacy_window_section_name, legacy_option_name, fallback=fallback
+            )
 
         return fallback
 
@@ -337,7 +350,9 @@ class MyApp(MasterPanelMixin, QMainWindow):
         legacy_option_name = legacy_option_name or option_name
         if config.has_option(self.legacy_window_section_name, legacy_option_name):
             try:
-                return config.getint(self.legacy_window_section_name, legacy_option_name)
+                return config.getint(
+                    self.legacy_window_section_name, legacy_option_name
+                )
             except ValueError:
                 return fallback
 
@@ -348,15 +363,17 @@ class MyApp(MasterPanelMixin, QMainWindow):
             config.has_option(self.config_section_name, option_name)
             or config.has_option(self.legacy_window_section_name, legacy_option_name)
             for option_name, legacy_option_name in (
-                ('window_left', 'left'),
-                ('window_top', 'top'),
+                ("window_left", "left"),
+                ("window_top", "top"),
             )
         ):
             return False
 
         try:
-            left = self._get_config_int(config, 'window_left', legacy_option_name='left')
-            top = self._get_config_int(config, 'window_top', legacy_option_name='top')
+            left = self._get_config_int(
+                config, "window_left", legacy_option_name="left"
+            )
+            top = self._get_config_int(config, "window_top", legacy_option_name="top")
         except ValueError:
             return False
 
@@ -368,101 +385,119 @@ class MyApp(MasterPanelMixin, QMainWindow):
         if not state_fields:
             return False
 
-        window_state = state_fields.get('window', 'normal')
-        if window_state == 'maximized':
+        window_state = state_fields.get("window", "normal")
+        if window_state == "maximized":
             self.showMaximized()
-        elif window_state == 'fullscreen':
+        elif window_state == "fullscreen":
             self.showFullScreen()
         else:
             self.showNormal()
 
-        sidebar_state = state_fields.get('sidebar', 'left')
-        if sidebar_state == 'hidden':
+        sidebar_state = state_fields.get("sidebar", "left")
+        if sidebar_state == "hidden":
             self.sidebar_dock.hide()
         else:
             self.sidebar_dock.show()
             dock_area = (
                 Qt.DockWidgetArea.RightDockWidgetArea
-                if sidebar_state == 'right'
+                if sidebar_state == "right"
                 else Qt.DockWidgetArea.LeftDockWidgetArea
             )
             self.addDockWidget(dock_area, self.sidebar_dock)
 
-        toolbar_state = state_fields.get('toolbar', 'hidden')
-        self.toolbar.setVisible(toolbar_state == 'visible')
+        toolbar_state = state_fields.get("toolbar", "hidden")
+        self.toolbar.setVisible(toolbar_state == "visible")
         return True
 
     def _restore_window_layout(self, config):
-        if self.config_section_name not in config and self.legacy_window_section_name not in config:
+        if (
+            self.config_section_name not in config
+            and self.legacy_window_section_name not in config
+        ):
             return False
 
-        window_state = self._get_config_value(config, 'window_state').strip().lower()
-        sidebar_position = self._get_config_value(config, 'sidebar_position').strip().lower()
-        toolbar_visibility = self._get_config_value(config, 'toolbar_visibility').strip().lower()
+        window_state = self._get_config_value(config, "window_state").strip().lower()
+        sidebar_position = (
+            self._get_config_value(config, "sidebar_position").strip().lower()
+        )
+        toolbar_visibility = (
+            self._get_config_value(config, "toolbar_visibility").strip().lower()
+        )
 
         if not any((window_state, sidebar_position, toolbar_visibility)):
             return False
 
-        if window_state == 'maximized':
+        if window_state == "maximized":
             self.showMaximized()
-        elif window_state == 'fullscreen':
+        elif window_state == "fullscreen":
             self.showFullScreen()
         else:
             self.showNormal()
 
-        if sidebar_position == 'hidden':
+        if sidebar_position == "hidden":
             self.sidebar_dock.hide()
         else:
             self.sidebar_dock.show()
             dock_area = (
                 Qt.DockWidgetArea.RightDockWidgetArea
-                if sidebar_position == 'right'
+                if sidebar_position == "right"
                 else Qt.DockWidgetArea.LeftDockWidgetArea
             )
             self.addDockWidget(dock_area, self.sidebar_dock)
 
-        self.toolbar.setVisible(toolbar_visibility == 'visible')
+        self.toolbar.setVisible(toolbar_visibility == "visible")
         return True
 
     def _serialize_state(self):
         if self.isFullScreen():
-            window_state = 'fullscreen'
+            window_state = "fullscreen"
         elif self.isMaximized():
-            window_state = 'maximized'
+            window_state = "maximized"
         else:
-            window_state = 'normal'
+            window_state = "normal"
 
         if not self.sidebar_dock.isVisible():
-            sidebar_state = 'hidden'
-        elif self.dockWidgetArea(self.sidebar_dock) == Qt.DockWidgetArea.RightDockWidgetArea:
-            sidebar_state = 'right'
+            sidebar_state = "hidden"
+        elif (
+            self.dockWidgetArea(self.sidebar_dock)
+            == Qt.DockWidgetArea.RightDockWidgetArea
+        ):
+            sidebar_state = "right"
         else:
-            sidebar_state = 'left'
+            sidebar_state = "left"
 
-        toolbar_state = 'visible' if self.toolbar.isVisible() else 'hidden'
+        toolbar_state = "visible" if self.toolbar.isVisible() else "hidden"
         return window_state, sidebar_state, toolbar_state
 
     def _restore_window_state(self, config):
-        width = self._get_config_int(config, 'window_width', fallback=800, legacy_option_name='width')
-        height = self._get_config_int(config, 'window_height', fallback=600, legacy_option_name='height')
+        width = self._get_config_int(
+            config, "window_width", fallback=800, legacy_option_name="width"
+        )
+        height = self._get_config_int(
+            config, "window_height", fallback=600, legacy_option_name="height"
+        )
         self.resize(width, height)
         self._queue_panel_sizes_restore(config)
 
         restored_position = self._restore_window_position(config, width, height)
 
-        geometry_value = self._get_config_value(config, 'window_geometry', legacy_option_name='geometry')
+        geometry_value = self._get_config_value(
+            config, "window_geometry", legacy_option_name="geometry"
+        )
         if geometry_value and not restored_position:
             if not self._restore_human_geometry(geometry_value, width, height):
-                geometry = QByteArray.fromBase64(geometry_value.encode('ascii'))
+                geometry = QByteArray.fromBase64(geometry_value.encode("ascii"))
                 if not geometry.isEmpty():
                     self.restoreGeometry(geometry)
 
         restored_layout = self._restore_window_layout(config)
 
-        state_value = self._get_config_value(config, 'window_legacy_state', legacy_option_name='state')
+        state_value = self._get_config_value(
+            config, "window_legacy_state", legacy_option_name="state"
+        )
         if state_value and not restored_layout:
             if not self._restore_human_state(state_value):
-                state = QByteArray.fromBase64(state_value.encode('ascii'))
+                state = QByteArray.fromBase64(state_value.encode("ascii"))
                 if not state.isEmpty():
                     self.restoreState(state)
 
@@ -471,28 +506,30 @@ class MyApp(MasterPanelMixin, QMainWindow):
             config.add_section(self.config_section_name)
 
         geometry = self.geometry()
-        config.set(self.config_section_name, 'window_width', str(self.width()))
-        config.set(self.config_section_name, 'window_height', str(self.height()))
-        config.set(self.config_section_name, 'window_left', str(geometry.x()))
-        config.set(self.config_section_name, 'window_top', str(geometry.y()))
-        config.set(self.config_section_name, 'sidebar_width', str(self.sidebar_dock.width()))
-        config.remove_option(self.config_section_name, 'window_geometry')
+        config.set(self.config_section_name, "window_width", str(self.width()))
+        config.set(self.config_section_name, "window_height", str(self.height()))
+        config.set(self.config_section_name, "window_left", str(geometry.x()))
+        config.set(self.config_section_name, "window_top", str(geometry.y()))
+        config.set(
+            self.config_section_name, "sidebar_width", str(self.sidebar_dock.width())
+        )
+        config.remove_option(self.config_section_name, "window_geometry")
         window_state, sidebar_state, toolbar_state = self._serialize_state()
-        config.set(self.config_section_name, 'window_state', window_state)
-        config.set(self.config_section_name, 'sidebar_position', sidebar_state)
-        config.set(self.config_section_name, 'toolbar_visibility', toolbar_state)
-        config.remove_option(self.config_section_name, 'window_legacy_state')
+        config.set(self.config_section_name, "window_state", window_state)
+        config.set(self.config_section_name, "sidebar_position", sidebar_state)
+        config.set(self.config_section_name, "toolbar_visibility", toolbar_state)
+        config.remove_option(self.config_section_name, "window_legacy_state")
         if config.has_section(self.legacy_window_section_name):
             config.remove_section(self.legacy_window_section_name)
-        if config.has_section('Panels'):
-            config.remove_section('Panels')
+        if config.has_section("Panels"):
+            config.remove_section("Panels")
 
     def _queue_panel_sizes_restore(self, config):
-        sidebar_width = self._get_config_int(config, 'sidebar_width', fallback=0)
+        sidebar_width = self._get_config_int(config, "sidebar_width", fallback=0)
 
-        if sidebar_width <= 0 and 'Panels' in config:
+        if sidebar_width <= 0 and "Panels" in config:
             try:
-                sidebar_width = config.getint('Panels', 'sidebar_width', fallback=0)
+                sidebar_width = config.getint("Panels", "sidebar_width", fallback=0)
             except ValueError:
                 sidebar_width = 0
 
@@ -507,9 +544,13 @@ class MyApp(MasterPanelMixin, QMainWindow):
         if self.width() <= 0 or self.content_widget.width() <= 0:
             return
 
-        available_width = max(1, self.sidebar_dock.width() + self.content_widget.width())
+        available_width = max(
+            1, self.sidebar_dock.width() + self.content_widget.width()
+        )
         sidebar_width = min(self._pending_sidebar_width, available_width - 1)
-        self.resizeDocks([self.sidebar_dock], [sidebar_width], Qt.Orientation.Horizontal)
+        self.resizeDocks(
+            [self.sidebar_dock], [sidebar_width], Qt.Orientation.Horizontal
+        )
         self._panel_sizes_restored = True
 
     def showEvent(self, event):
@@ -519,10 +560,16 @@ class MyApp(MasterPanelMixin, QMainWindow):
     def handle_save_action(self):
         try:
             if not save_current_file(self):
-                QMessageBox.warning(self, "Ошибка сохранения", "Не удалось определить исходный файл для сохранения.")
+                QMessageBox.warning(
+                    self,
+                    "Ошибка сохранения",
+                    "Не удалось определить исходный файл для сохранения.",
+                )
                 return
         except OSError as error:
-            QMessageBox.warning(self, "Ошибка сохранения", f"Не удалось сохранить файл:\n{error}")
+            QMessageBox.warning(
+                self, "Ошибка сохранения", f"Не удалось сохранить файл:\n{error}"
+            )
             return
 
         self.editor.document().setModified(False)
@@ -538,6 +585,7 @@ class MyApp(MasterPanelMixin, QMainWindow):
 
         AppConfig.write_config(config)
         event.accept()
+
 
 if __name__ == "__main__":
     configure_app_identity()
