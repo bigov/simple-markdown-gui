@@ -4,14 +4,11 @@ import configparser
 import os
 import pathlib
 
-from PySide6.QtCore import QDir
 from PySide6.QtCore import QItemSelectionModel
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox, QLineEdit
-from PySide6.QtWidgets import QWidget
 
 from config import AppConfig
-from files_panel import get_startup_file_path
 
 
 def _current_directory(window):
@@ -312,105 +309,54 @@ def create_subdirectory_in_current_directory(window):
         )
 
 
-def _choose_open_path(window, start_directory):
-    """Return a selected markdown file or directory path from the open dialog."""
-    dialog_parent = window if isinstance(window, QWidget) else None
-    dialog = QFileDialog(
-        dialog_parent,
-        "Open Markdown",
-        start_directory,
-        "Markdown Files (*.md)",
-    )
-    dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptOpen)
-    dialog.setFileMode(QFileDialog.FileMode.AnyFile)
-    dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
-    dialog.setFilter(
-        QDir.Filter.AllDirs | QDir.Filter.Files | QDir.Filter.NoDotAndDotDot
-    )
-
-    if dialog.exec() != QFileDialog.DialogCode.Accepted:
-        return ""
-
-    selected_paths = dialog.selectedFiles()
-    if not selected_paths:
-        return ""
-
-    return selected_paths[0]
-
-
-def _persist_base_dir(window, base_dir):
-    """Update sidebar root and persist base_dir in config.ini."""
-    if hasattr(window, "file_model") and hasattr(window, "sidebar"):
-        root_index = window.file_model.setRootPath(base_dir)
-        window.sidebar.setRootIndex(root_index)
-
-    window.base_dir = base_dir
-    window.current_sidebar_directory = base_dir
-
-    config = configparser.ConfigParser()
-    config.read(window.config_path)
-    if not config.has_section(window.config_section_name):
-        config.add_section(window.config_section_name)
-    config.set(window.config_section_name, "base_dir", base_dir)
-    window.config_path = AppConfig.write_config(config)
-
-
-def _clear_master_panel(window):
-    """Clear the open document and leave the editor panel empty."""
-    window.current_file_path = None
-    window.editor.clear()
-    if hasattr(window, "_set_markdown_cache"):
-        window._set_markdown_cache("", "")
-    else:
-        window._original_markdown = ""
-        window._editor_markdown = ""
-    window.editor.document().setModified(False)
-    if hasattr(window, "set_status_mode"):
-        window.set_status_mode("Режим форматированного редактирования")
-    if hasattr(window, "update_save_action_state"):
-        window.update_save_action_state()
-    if hasattr(window, "notify_current_file_changed"):
-        window.notify_current_file_changed()
-
-
 def open_markdown_file(window):
-    """Open a markdown file or directory and persist its base_dir."""
+    """Open a markdown file and persist its directory as configured base_dir."""
     start_directory = _current_directory(window)
 
-    selected_path = _choose_open_path(window, start_directory)
-    if not selected_path:
+    file_path, _ = QFileDialog.getOpenFileName(
+        window,
+        "Open Markdown",
+        start_directory,
+        "Markdown Files (*.md);;All Files (*)",
+    )
+    if not file_path:
         return
 
     if hasattr(window, "confirm_close_editor") and not window.confirm_close_editor():
         return
 
-    abs_path = os.path.abspath(selected_path)
-    base_dir = abs_path if os.path.isdir(abs_path) else os.path.dirname(abs_path)
+    abs_path = os.path.abspath(file_path)
+    base_dir = os.path.dirname(abs_path)
+
+    if hasattr(window, "file_model") and hasattr(window, "sidebar"):
+        root_index = window.file_model.setRootPath(base_dir)
+        window.sidebar.setRootIndex(root_index)
+
+    if hasattr(window, "load_file_by_path_fn"):
+        window.load_file_by_path_fn(abs_path)
+    else:
+        from filesystem import (
+            load_file_by_path,
+        )
+
+        load_file_by_path(abs_path, window)
+
+    window.base_dir = base_dir
+    window.current_sidebar_directory = base_dir
 
     try:
-        _persist_base_dir(window, base_dir)
+        config = configparser.ConfigParser()
+        config.read(window.config_path)
+        if not config.has_section(window.config_section_name):
+            config.add_section(window.config_section_name)
+        config.set(window.config_section_name, "base_dir", base_dir)
+        window.config_path = AppConfig.write_config(config)
     except OSError as exc:
         QMessageBox.warning(
             window,
             "Open file",
-            f"The selection was opened, but base_dir could not be saved:\n{exc}",
+            f"The file was opened, but base_dir could not be saved:\n{exc}",
         )
-
-    file_to_open = abs_path
-    if os.path.isdir(abs_path):
-        file_to_open = get_startup_file_path(base_dir) or ""
-
-    if file_to_open:
-        if hasattr(window, "load_file_by_path_fn"):
-            window.load_file_by_path_fn(file_to_open)
-        else:
-            from filesystem import (
-                load_file_by_path,
-            )
-
-            load_file_by_path(file_to_open, window)
-    else:
-        _clear_master_panel(window)
 
 
 def create_menu_bar(window):
