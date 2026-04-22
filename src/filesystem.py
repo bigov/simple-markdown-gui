@@ -8,7 +8,8 @@ from markdown_rendering import render_markdown_with_styles
 
 
 def write_text_to_file(file_path, text):
-    with open(file_path, "w", encoding="utf-8", newline="\n") as file:
+    # Keep line endings from the produced markdown text unchanged.
+    with open(file_path, "w", encoding="utf-8", newline="") as file:
         file.write(text)
 
 
@@ -39,7 +40,7 @@ def _display_file(file_path, widget):
     file_path = os.path.abspath(file_path)
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8", newline="") as f:
             text = f.read()
 
         widget.current_file_path = file_path

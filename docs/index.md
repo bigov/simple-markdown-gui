@@ -2,6 +2,8 @@
 
 Markdown GUI application project.
 
+Current verified Windows release: 1.0.4.
+
  - [Windows Build](build-windows.md)
  - [Release Checklist](release-checklist.md)
 

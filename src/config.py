@@ -20,6 +20,8 @@ class AppConfig:
     styles_file_name = "styles.css"
     config_file_name = "config.ini"
     localappdata_var_name = "LOCALAPPDATA"
+    # Backward-compatible alias used by older tests/integration points.
+    appdata_var_name = localappdata_var_name
     startup_error_title = "Startup error"
     missing_appdata_message = (
         "Unable to determine the user application data directory from LOCALAPPDATA."
@@ -244,46 +246,45 @@ toolbar_visibility = hidden
 """
 
 
-DEFAULT_STYLES_TEMPLATE = """/* Styles for Markdown content in QTextBrowser */
+DEFAULT_STYLES_TEMPLATE = """
+/* Styles for Markdown content in QTextBrowser */
 
 /* Body styles */
 body {
     font-family: 'Segoe UI', 'Noto Sans', Arial, Helvetica, sans-serif;
-    font-size: 11pt;
+    font-size: 10pt;
     color: #333;
     background-color: #fff;
     margin: 12px 8px 12px 12px;
 }
 
 /* Headings */
-h1, h2, h3, h4, h5, h6 {
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    display: block;
     color: #2c3e50;
     font-weight: bold;
 }
+.h6, h6 {
+    font-size: 10pt;
+}
 
-h1 {
+.h5, h5 {
+    font-size: 11pt;
+}
+.h4, h4 {
+    font-size: 12pt;
+}
+.h3, h3 {
+    font-size: 13pt;
+}
+.h2, h2 {
+    font-size: 14pt;
+    margin-bottom: 0.2em;
+}
+.h1, h1 {
+    font-size: 15pt;
     margin-top: 1.5em;
-    font-size: 200%;
-    border-bottom: 2px solid #3498db;
-    padding-bottom: 0.3em;
-}
-
-h2 {
-    font-size: 180%;
-    border-bottom: 1px solid #bdc3c7;
-    padding-bottom: 0.2em;
-}
-
-h3 {
-    font-size: 160%;
-}
-
-h4 {
-    font-size: 150%;
-}
-
-h5, h6 {
-    font-size: 125%;
+    margin-bottom: 0.3em;
 }
 
 /* Paragraphs */
@@ -293,7 +294,7 @@ p {
 
 /* Links */
 a {
-    color: #3498db;
+    color: #2659D1;
     text-decoration: none;
 }
 
@@ -312,14 +313,42 @@ ol, li {
 }
 
 /* Code blocks */
-pre {
+pre, code {
+    font-family: 'Noto Sans Mono Condensed Medium', 'Noto Sans Mono Condensed', 'Noto Sans Mono', 'Cascadia Mono', monospace;
+    font-size: 10pt;
     background-color: #f1f1f1;
-    overflow-x: auto;
 }
 
-code {
+pre {
+	margin: 0;
+	overflow-x: auto;
+}
+
+pre code {
+	background-color: transparent;
+}
+
+table.code-block {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 0;
+    margin-top: 0.5em;
+    border: 1px solid #d9d9d9;
     background-color: #f1f1f1;
-    font-family: Consolas, 'Cascadia Mono', 'Noto Sans Mono', 'Courier New', monospace;
+}
+
+table.code-block td {
+    border: 1px solid #f1f1f1;
+    padding: 0;
+    padding-top: 0.5em;
+    text-align: left;
+}
+
+td.code-block-gutter,
+td.code-block-content,
+table.code-block pre {
+    background-color: #f1f1f1;
 }
 
 /* Blockquotes */
@@ -335,7 +364,6 @@ blockquote {
 /* Tables */
 table {
     border-collapse: collapse;
-    width: 100%;
     margin: 0.5em 0 1em 0;
 }
 
@@ -373,4 +401,5 @@ strong {
 em {
     font-style: italic;
 }
+
 """

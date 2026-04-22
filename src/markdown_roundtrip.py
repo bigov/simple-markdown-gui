@@ -92,6 +92,31 @@ def _normalize_inline_markdown(text):
     return text
 
 
+def _restore_qt_table_wrapped_code_blocks(markdown_text):
+    """Convert Qt's markdown export for wrapped code-block tables back to fences."""
+
+    def replace_table(match):
+        code_lines = []
+        for row in match.group(1).splitlines():
+            cells = row.split("|")
+            while cells and cells[-1].strip() == "":
+                cells.pop()
+            for cell in cells:
+                stripped = cell.rstrip()
+                if stripped.strip() == "":
+                    continue
+                code_lines.append(stripped)
+
+        return "```\n" + "\n".join(code_lines) + "\n```"
+
+    return re.sub(
+        r"\|\|```[^\n]*\n(.*?)\n\n```",
+        replace_table,
+        markdown_text,
+        flags=re.DOTALL,
+    )
+
+
 # Builds a normalized signature used to compare original and edited markdown chunks.
 def _chunk_signature(chunk):
     block = chunk.block.strip("\n")
@@ -139,7 +164,9 @@ def _demote_inherited_heading(chunk, previous_chunk):
 # Merges edited markdown with original unchanged chunks to preserve stable round-tripping.
 def preserve_roundtrip_markdown(original_markdown, edited_markdown):
     original_chunks = _split_markdown_chunks(original_markdown)
-    edited_chunks = _split_markdown_chunks(edited_markdown)
+    edited_chunks = _split_markdown_chunks(
+        _restore_qt_table_wrapped_code_blocks(edited_markdown)
+    )
 
     original_signatures = [_chunk_signature(chunk) for chunk in original_chunks]
     edited_signatures = [_chunk_signature(chunk) for chunk in edited_chunks]

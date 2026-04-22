@@ -128,7 +128,7 @@ class MasterPanel:
 
         return True
 
-    def eventFilter(self, obj, event):
+    def event_filter(self, obj, event):
         if obj == self.editor.viewport() and event.type() == QEvent.Type.MouseMove:
             link = self.editor.anchorAt(event.position().toPoint())
             if link:
@@ -154,6 +154,10 @@ class MasterPanel:
             if event.key() == Qt.Key.Key_Escape:
                 return self.confirm_close_editor()
         return QMainWindow.eventFilter(cast(QMainWindow, self), obj, event)
+
+    # Overrides QObject virtual method on this filter object (window instance
+    # including MasterPanel), and Qt invokes this implementation via event filter.
+    eventFilter = event_filter
 
     def _set_editor_cursor_shape(self, cursor_shape):
         self.editor.setCursor(cursor_shape)
@@ -272,3 +276,7 @@ class MasterPanel:
         if separator:
             return f"{relative_path}#{fragment}"
         return relative_path
+
+
+# Backward-compatible alias for historical imports in tests/extensions.
+MasterPanelMixin = MasterPanel

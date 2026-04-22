@@ -18,7 +18,7 @@ Run the build script from the repository root:
 To stamp a specific version into the Windows executable metadata:
 
 ```powershell
-./build_windows.ps1 -Version 1.0.3
+./build_windows.ps1 -Version 1.0.4
 ```
 
 The script installs build dependencies, cleans previous PyInstaller output, and produces:
@@ -33,7 +33,7 @@ dist/simple-markdown-gui.exe
 - CSS and config templates are embedded in the Python sources as fallback defaults.
 - A Windows .ico file is generated from src/resources/icon.png during the build.
 - Version metadata is embedded into the executable resource table.
-- At startup, the app always uses the user-specific directory derived from `app_name`: `%APPDATA%/Markdown GUI` on Windows or `~/.config/Markdown GUI` on Unix-like systems.
+- At startup, the app always uses the user-specific directory derived from `app_name`: `%LOCALAPPDATA%/Markdown GUI` on Windows.
 - If config.ini or styles.css is missing in that directory, the app recreates the file from the embedded template in [../src/config.py](../src/config.py).
 
 ## Release ZIP
@@ -41,20 +41,20 @@ dist/simple-markdown-gui.exe
 Run the release packaging script from the repository root:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.3
+./build_release_zip.ps1 -Version 1.0.4
 ```
 
 If dist/simple-markdown-gui.exe is already present and only the archive needs to be rebuilt:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.3 -SkipBuild
+./build_release_zip.ps1 -Version 1.0.4 -SkipBuild
 ```
 
 The script builds the executable and creates:
 
 ```text
-release/simple-markdown-gui-windows-x64-v1.0.3.zip
-release/simple-markdown-gui-windows-x64-v1.0.3.sha256.txt
+release/simple-markdown-gui-windows-x64-v1.0.4.zip
+release/simple-markdown-gui-windows-x64-v1.0.4.sha256.txt
 ```
 
 The ZIP archive contains the executable together with README and license files.
@@ -64,7 +64,7 @@ The ZIP archive contains the executable together with README and license files.
 To remove stale build artifacts, logs, and older release files while keeping the current release:
 
 ```powershell
-./clean_release_artifacts.ps1 -CurrentVersion 1.0.3
+./clean_release_artifacts.ps1 -CurrentVersion 1.0.4
 ```
 
 ## Notes

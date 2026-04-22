@@ -121,42 +121,42 @@ The script will:
 - generate a Windows .ico from src/resources/icon.png;
 - attach Windows executable metadata such as product name, description, and version resource.
 
-The current verified Windows release is 1.0.3.
+The current verified Windows release is 1.0.4.
 
 To set the executable version metadata explicitly:
 
 ```powershell
-./build_windows.ps1 -Version 1.0.3
+./build_windows.ps1 -Version 1.0.4
 ```
 
 To create a distributable release archive:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.3
+./build_release_zip.ps1 -Version 1.0.4
 ```
 
 If the executable is already built and you only want to package it into ZIP again:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.3 -SkipBuild
+./build_release_zip.ps1 -Version 1.0.4 -SkipBuild
 ```
 
 To remove stale build artifacts, logs, and older release files in one step:
 
 ```powershell
-./clean_release_artifacts.ps1 -CurrentVersion 1.0.3
+./clean_release_artifacts.ps1 -CurrentVersion 1.0.4
 ```
 
-At startup, the application always uses the user-specific directory derived from `app_name`: `%APPDATA%/Markdown GUI` on Windows or `~/.config/Markdown GUI` on Unix-like systems. If config.ini or styles.css is missing there, the file is recreated from embedded templates in [src/config.py](src/config.py).
+At startup, the application always uses the user-specific directory derived from `app_name`: `%LOCALAPPDATA%/Markdown GUI` on Windows. If config.ini or styles.css is missing there, the file is recreated from embedded templates in [src/config.py](src/config.py).
 
 ---
 
 ## Pre-release check
 
-Before a release, run the Markdown round-trip regression test to verify that opening and saving documents in visual mode does not corrupt the original Markdown structure:
+Before a release, run the full automated test suite (includes Markdown round-trip regression coverage):
 
 ```bash
-python -m unittest tests.test_markdown_roundtrip -v
+python -m pytest -q
 ```
 
 For a short release workflow, see [docs/release-checklist.md](docs/release-checklist.md).

@@ -1,3 +1,5 @@
+"""Filename and version metadata preparation for Windows builds."""
+
 from __future__ import annotations
 
 import argparse
@@ -12,8 +14,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--png", required=True, help="Path to source PNG icon.")
     parser.add_argument("--ico", required=True, help="Path to output ICO file.")
-    parser.add_argument("--version-file", required=True, help="Path to PyInstaller version file.")
-    parser.add_argument("--version", required=True, help="Application version, for example 1.2.3.")
+    parser.add_argument(
+        "--version-file", required=True, help="Path to PyInstaller version file."
+    )
+    parser.add_argument(
+        "--version", required=True, help="Application version, for example 1.2.3."
+    )
     parser.add_argument("--company-name", required=True)
     parser.add_argument("--product-name", required=True)
     parser.add_argument("--file-description", required=True)
@@ -24,7 +30,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def normalize_version(version: str) -> tuple[int, int, int, int]:
-    version_parts = [part.strip() for part in version.split('.') if part.strip()]
+    version_parts = [part.strip() for part in version.split(".") if part.strip()]
     if not version_parts:
         raise ValueError("Version must contain at least one numeric component.")
 
@@ -37,7 +43,12 @@ def normalize_version(version: str) -> tuple[int, int, int, int]:
     while len(normalized_parts) < 4:
         normalized_parts.append(0)
 
-    return tuple(normalized_parts)
+    return (
+        normalized_parts[0],
+        normalized_parts[1],
+        normalized_parts[2],
+        normalized_parts[3],
+    )
 
 
 def create_icon(png_path: Path, ico_path: Path) -> None:
@@ -48,7 +59,15 @@ def create_icon(png_path: Path, ico_path: Path) -> None:
         image.save(
             ico_path,
             format="ICO",
-            sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (160, 160)],
+            sizes=[
+                (16, 16),
+                (24, 24),
+                (32, 32),
+                (48, 48),
+                (64, 64),
+                (128, 128),
+                (160, 160),
+            ],
         )
 
 
@@ -63,7 +82,7 @@ def create_version_file(
     copyright_text: str,
 ) -> None:
     version_tuple = normalize_version(version)
-    version_string = '.'.join(str(part) for part in version_tuple)
+    version_string = ".".join(str(part) for part in version_tuple)
 
     content = f"""VSVersionInfo(
   ffi=FixedFileInfo(
