@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.0',
+    [string]$Version,
     [string]$CompanyName = 'Simple Markdown GUI contributors',
     [string]$ProductName = 'Simple Markdown GUI',
     [string]$FileDescription = 'Simple Markdown GUI Markdown editor',
@@ -18,11 +18,17 @@ $workDir = Join-Path $buildRoot 'work'
 $resourceDir = Join-Path $buildRoot 'resources'
 $faviconPath = Join-Path $repoRoot 'src\resources\icon.png'
 $resourceHelper = Join-Path $repoRoot 'tools\prepare_windows_build_resources.py'
+$buildVersionHelper = Join-Path $repoRoot 'tools\build_version.ps1'
 $specFilePath = Join-Path $repoRoot 'simple-markdown-gui.spec'
 $iconPath = Join-Path $resourceDir 'simple-markdown-gui.ico'
 $versionFilePath = Join-Path $resourceDir 'version_info.txt'
 $exeName = 'simple-markdown-gui.exe'
 
+. $buildVersionHelper
+
+if (-not $Version) {
+    $Version = Get-CurrentRepoVersion -RepoRoot $repoRoot
+}
 
 if (-not (Test-Path $pythonExe)) {
     throw 'Virtual environment interpreter was not found at .venv\Scripts\python.exe'

@@ -15,11 +15,7 @@ Run the build script from the repository root:
 ./build_windows.ps1
 ```
 
-To stamp a specific version into the Windows executable metadata:
-
-```powershell
-./build_windows.ps1 -Version 1.0.4
-```
+The script reads the executable version from [../src/__init__.py](../src/__init__.py).
 
 The script installs build dependencies, cleans previous PyInstaller output, and produces:
 
@@ -41,13 +37,13 @@ dist/simple-markdown-gui.exe
 Run the release packaging script from the repository root:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.4
+./build_release_zip.ps1
 ```
 
 If dist/simple-markdown-gui.exe is already present and only the archive needs to be rebuilt:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.4 -SkipBuild
+./build_release_zip.ps1 -SkipBuild
 ```
 
 The script builds the executable and creates:
@@ -57,6 +53,8 @@ release/simple-markdown-gui-windows-x64-v1.0.4.zip
 release/simple-markdown-gui-windows-x64-v1.0.4.sha256.txt
 ```
 
+The archive version in the file name is derived from [../src/__init__.py](../src/__init__.py).
+
 The ZIP archive contains the executable together with README and license files.
 
 ## Cleanup
@@ -64,7 +62,7 @@ The ZIP archive contains the executable together with README and license files.
 To remove stale build artifacts, logs, and older release files while keeping the current release:
 
 ```powershell
-./clean_release_artifacts.ps1 -CurrentVersion 1.0.4
+./clean_release_artifacts.ps1
 ```
 
 ## Notes

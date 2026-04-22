@@ -1,11 +1,12 @@
 param(
     [switch]$KeepCurrentRelease,
-    [string]$CurrentVersion = '1.0.2'
+    [string]$CurrentVersion
 )
 
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$buildVersionHelper = Join-Path $repoRoot 'tools\build_version.ps1'
 $buildDir = Join-Path $repoRoot 'build'
 $releaseDir = Join-Path $repoRoot 'release'
 $logFiles = @(
@@ -13,6 +14,12 @@ $logFiles = @(
     (Join-Path $repoRoot 'error.log'),
     (Join-Path $repoRoot 'output.log')
 )
+
+. $buildVersionHelper
+
+if (-not $CurrentVersion) {
+    $CurrentVersion = Get-CurrentRepoVersion -RepoRoot $repoRoot
+}
 
 if (Test-Path $buildDir) {
     Remove-Item $buildDir -Recurse -Force

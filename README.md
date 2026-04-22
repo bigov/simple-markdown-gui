@@ -121,30 +121,24 @@ The script will:
 - generate a Windows .ico from src/resources/icon.png;
 - attach Windows executable metadata such as product name, description, and version resource.
 
-The current verified Windows release is 1.0.4.
-
-To set the executable version metadata explicitly:
-
-```powershell
-./build_windows.ps1 -Version 1.0.4
-```
+The current app version is defined in [src/__init__.py](src/__init__.py) and is used by the build scripts automatically.
 
 To create a distributable release archive:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.4
+./build_release_zip.ps1
 ```
 
 If the executable is already built and you only want to package it into ZIP again:
 
 ```powershell
-./build_release_zip.ps1 -Version 1.0.4 -SkipBuild
+./build_release_zip.ps1 -SkipBuild
 ```
 
 To remove stale build artifacts, logs, and older release files in one step:
 
 ```powershell
-./clean_release_artifacts.ps1 -CurrentVersion 1.0.4
+./clean_release_artifacts.ps1
 ```
 
 At startup, the application always uses the user-specific directory derived from `app_name`: `%LOCALAPPDATA%/Markdown GUI` on Windows. If config.ini or styles.css is missing there, the file is recreated from embedded templates in [src/config.py](src/config.py).

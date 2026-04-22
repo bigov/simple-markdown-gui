@@ -40,7 +40,7 @@ def _display_file(file_path, widget):
     file_path = os.path.abspath(file_path)
 
     try:
-        with open(file_path, "r", encoding="utf-8", newline="") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             text = f.read()
 
         widget.current_file_path = file_path

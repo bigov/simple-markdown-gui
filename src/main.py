@@ -3,14 +3,19 @@
 import configparser
 import sys
 import os
-from pathlib import Path
 
 from PySide6.QtCore import Qt, QTimer, QByteArray
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QPalette
-from PySide6.QtWidgets import QApplication, QDockWidget, QFrame, QLabel, QMainWindow
-from PySide6.QtWidgets import QMessageBox, QVBoxLayout, QWidget
+from PySide6.QtGui import QAction, QCloseEvent, QPalette
+from PySide6.QtWidgets import QMenu
+from PySide6.QtWidgets import QApplication, QFrame, QLabel, QMainWindow
+from PySide6.QtWidgets import QMessageBox
 
 from config import AppConfig, setup_app_icon, configure_app_identity
+
+try:
+    from . import __version__
+except ImportError:
+    from __init__ import __version__
 
 try:
     from .master_panel import MasterPanel
@@ -18,7 +23,8 @@ except ImportError:
     from master_panel import MasterPanel
 
 from toolbar import create_toolbar
-from sidebar import create_sidebar
+from menubar import create_menu_bar
+from files_panel import initialize_sidebar
 from filesystem import load_file, load_file_by_path, save_current_file
 
 
@@ -38,11 +44,13 @@ class MyApp(MasterPanel, QMainWindow):
     underline_action: QAction
     italic_action: QAction
     strikethrough_action: QAction
+    edit_menu: QMenu
 
     def __init__(self):
         QMainWindow.__init__(self)
         self.config_path = AppConfig.ensure_config_exists()
         self.current_file_path = None
+        self.current_sidebar_directory = None
         self._original_markdown = ""  # Store original markdown when in preview mode
         self._editor_markdown = ""
         self._status_mode = "Режим форматированного редактирования"
@@ -61,35 +69,26 @@ class MyApp(MasterPanel, QMainWindow):
 
         self.resize(800, 600)
 
-        base_dir = "./"
-        if "Default" in config:
-            base_dir = config.get("Default", "base_dir", fallback="./")
-        self.base_dir = self._resolve_base_dir(base_dir)
-
         # Create sidebar with file list
-        self.sidebar, self.file_model = create_sidebar(base_dir)
-        self._apply_panel_frame_style(self.sidebar)
-        self.sidebar.clicked.connect(self.on_sidebar_clicked)
-        self.sidebar_container = QWidget()
-        self.sidebar_layout = QVBoxLayout(self.sidebar_container)
-        self.sidebar_layout.setContentsMargins(
-            self.panel_margin, self.panel_margin, self.panel_margin, self.panel_margin
+        (
+            self.sidebar,
+            self.file_model,
+            self.sidebar_container,
+            self.sidebar_layout,
+            self.sidebar_dock,
+            self.base_dir,
+            startup_file,
+        ) = initialize_sidebar(
+            self,
+            config,
+            self.config_section_name,
+            self.on_sidebar_clicked,
+            self._apply_panel_frame_style,
+            self._sync_panel_layout,
         )
-        self.sidebar_layout.setSpacing(0)
-        self.sidebar_layout.addWidget(self.sidebar)
-        self.sidebar_dock = QDockWidget("Files", self)
-        self.sidebar_dock.setObjectName("sidebar_dock")
-        self.sidebar_dock.setAllowedAreas(
-            Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
-        )
-        self.sidebar_dock.setWidget(self.sidebar_container)
-        self.sidebar_dock.setTitleBarWidget(QWidget())
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar_dock)
-        self.sidebar_dock.dockLocationChanged.connect(self._sync_panel_layout)
-        self.sidebar_dock.visibilityChanged.connect(self._sync_panel_layout)
 
         self._configure_panel_appearance()
-        self._create_menu_bar()
+        create_menu_bar(self)
         self.status_message_label = QLabel()
         self.status_message_label.setMinimumWidth(260)
         self.status_message_label.setContentsMargins(self.panel_margin, 0, 0, 0)
@@ -110,19 +109,21 @@ class MyApp(MasterPanel, QMainWindow):
         self._pending_sidebar_width = None
         self._panel_sizes_restored = False
         self._restore_window_state(config)
-
-        self.toolbar.show()
         self.update_save_action_state()
 
-        startup_file = os.path.join(self.base_dir, "index.md")
-        if os.path.isfile(startup_file):
+        if startup_file:
             load_file_by_path(startup_file, self)
 
     def on_sidebar_clicked(self, index):
         """Handle sidebar file selection."""
-        if not self.confirm_close_editor():
-            return
-        load_file(self.file_model, index, self)
+        clicked_path = self.file_model.filePath(index)
+        if self.file_model.isDir(index):
+            self.current_sidebar_directory = clicked_path
+        else:
+            self.current_sidebar_directory = os.path.dirname(clicked_path)
+            if not self.confirm_close_editor():
+                return
+            load_file(self.file_model, index, self)
 
     def update_save_action_state(self):
         is_modified = self.editor.document().isModified()
@@ -189,33 +190,6 @@ class MyApp(MasterPanel, QMainWindow):
         self.sidebar_layout.setContentsMargins(
             sidebar_left, outer_margin, sidebar_right, outer_margin
         )
-
-    def _create_menu_bar(self):
-        file_menu = self.menuBar().addMenu("&File")
-        file_menu.addAction(self.save_action)
-
-        self.exit_action = QAction("Exit", self)
-        self.exit_action.setShortcut(QKeySequence.StandardKey.Quit)
-        self.exit_action.triggered.connect(self.close)
-        file_menu.addSeparator()
-        file_menu.addAction(self.exit_action)
-
-        self.edit_menu = self.menuBar().addMenu("&Edit")
-        self.edit_menu.addAction(self.preview_action)
-        self.edit_menu.addSeparator()
-        self.edit_menu.addAction(self.bold_action)
-        self.edit_menu.addAction(self.underline_action)
-        self.edit_menu.addAction(self.italic_action)
-        self.edit_menu.addAction(self.strikethrough_action)
-
-        view_menu = self.menuBar().addMenu("&View")
-        view_menu.addAction(self.sidebar_dock.toggleViewAction())
-        view_menu.addAction(self.toolbar.toggleViewAction())
-
-        help_menu = self.menuBar().addMenu("&Help")
-        self.about_action = QAction("About", self)
-        self.about_action.triggered.connect(self.show_about_dialog)
-        help_menu.addAction(self.about_action)
 
     def show_status_message(self, message, timeout=0):
         self.status_message_timer.stop()
@@ -285,12 +259,6 @@ class MyApp(MasterPanel, QMainWindow):
         self.status_message_label.update()
         self.statusBar().update()
 
-    def _resolve_base_dir(self, base_dir):
-        base_path = Path(base_dir).resolve()
-        if not base_path.exists():
-            base_path = Path("./").resolve()
-        return str(base_path)
-
     def _restore_status_message(self):
         self.status_message_timer.stop()
         if self._hovered_link:
@@ -302,8 +270,10 @@ class MyApp(MasterPanel, QMainWindow):
     def show_about_dialog(self):
         QMessageBox.about(
             self,
-            "О программе",
-            "Simple Markdown GUI\n\nПросмотр и редактирование Markdown с файловой панелью и режимом round-trip сохранения.",
+            "About",
+            "Simple Markdown GUI\n"
+            f"Version {__version__}\n\n"
+            "Markdown viewer and editor with a file panel and round-trip save mode.",
         )
 
     def _parse_state_fields(self, value):
@@ -420,11 +390,20 @@ class MyApp(MasterPanel, QMainWindow):
         sidebar_position = (
             self._get_config_value(config, "sidebar_position").strip().lower()
         )
-        toolbar_visibility = (
-            self._get_config_value(config, "toolbar_visibility").strip().lower()
-        )
 
-        if not any((window_state, sidebar_position, toolbar_visibility)):
+        toolbar_status = (
+            self._get_config_value(config, "toolbar_status").strip().lower()
+        )
+        if not toolbar_status:
+            legacy_toolbar_visibility = (
+                self._get_config_value(config, "toolbar_visibility").strip().lower()
+            )
+            if legacy_toolbar_visibility == "visible":
+                toolbar_status = "on"
+            elif legacy_toolbar_visibility == "hidden":
+                toolbar_status = "off"
+
+        if not any((window_state, sidebar_position, toolbar_status)):
             return False
 
         if window_state == "maximized":
@@ -445,7 +424,7 @@ class MyApp(MasterPanel, QMainWindow):
             )
             self.addDockWidget(dock_area, self.sidebar_dock)
 
-        self.toolbar.setVisible(toolbar_visibility == "visible")
+        self.toolbar.setVisible(toolbar_status != "off")
         return True
 
     def _serialize_state(self):
@@ -517,7 +496,12 @@ class MyApp(MasterPanel, QMainWindow):
         window_state, sidebar_state, toolbar_state = self._serialize_state()
         config.set(self.config_section_name, "window_state", window_state)
         config.set(self.config_section_name, "sidebar_position", sidebar_state)
-        config.set(self.config_section_name, "toolbar_visibility", toolbar_state)
+        config.set(
+            self.config_section_name,
+            "toolbar_status",
+            "on" if toolbar_state == "visible" else "off",
+        )
+        config.remove_option(self.config_section_name, "toolbar_visibility")
         config.remove_option(self.config_section_name, "window_legacy_state")
         if config.has_section(self.legacy_window_section_name):
             config.remove_section(self.legacy_window_section_name)
@@ -562,14 +546,12 @@ class MyApp(MasterPanel, QMainWindow):
             if not save_current_file(self):
                 QMessageBox.warning(
                     self,
-                    "Ошибка сохранения",
-                    "Не удалось определить исходный файл для сохранения.",
+                    "Save error",
+                    "Could not determine the source file to save.",
                 )
                 return
         except OSError as error:
-            QMessageBox.warning(
-                self, "Ошибка сохранения", f"Не удалось сохранить файл:\n{error}"
-            )
+            QMessageBox.warning(self, "Save error", f"Could not save file:\n{error}")
             return
 
         self.editor.document().setModified(False)

@@ -76,9 +76,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"${workspaceFolder}/build_release_zip.ps1",
-				"-Version",
-				"${input:releaseVersion}"
+				"${workspaceFolder}/build_release_zip.ps1"
 			],
 			"isBackground": false,
 			"group": "build"
@@ -92,9 +90,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"${workspaceFolder}/clean_release_artifacts.ps1",
-				"-CurrentVersion",
-				"${input:releaseVersion}"
+				"${workspaceFolder}/clean_release_artifacts.ps1"
 			],
 			"isBackground": false,
 			"group": "build"
@@ -106,12 +102,6 @@
 			"type": "promptString",
 			"description": "Relative path to a test file",
 			"default": "tests/test_markdown_roundtrip.py"
-		},
-		{
-			"id": "releaseVersion",
-			"type": "promptString",
-			"description": "Release version for EXE metadata and ZIP name",
-			"default": "1.0.2"
 		}
 	]
 }

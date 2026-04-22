@@ -130,14 +130,20 @@ def _cache_editor_markdown(widget, markdown_text):
         setattr(widget, "_editor_markdown", markdown_text)
 
 
+def _get_original_markdown(widget):
+    if hasattr(widget, "get_original_markdown_text"):
+        return widget.get_original_markdown_text()
+    return getattr(widget, "_original_markdown", widget.editor.toMarkdown())
+
+
 def toggle_preview(widget, action):
     was_modified = widget.editor.document().isModified()
 
     if action.isChecked():
         # Keep exact source markdown when no visual edits were made,
         # avoiding Qt toMarkdown() normalization side effects.
-        if not was_modified and hasattr(widget, "_original_markdown"):
-            markdown_text = widget._original_markdown
+        if not was_modified:
+            markdown_text = _get_original_markdown(widget)
         elif hasattr(widget, "get_visual_editor_markdown_text"):
             markdown_text = widget.get_visual_editor_markdown_text()
         else:

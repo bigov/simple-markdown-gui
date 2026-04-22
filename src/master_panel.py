@@ -89,6 +89,9 @@ class MasterPanel:
     def _set_editor_markdown(self, markdown_text):
         self._editor_markdown = markdown_text
 
+    def get_original_markdown_text(self):
+        return self._original_markdown
+
     def get_editor_markdown_text(self):
         if not self.editor.document().isModified():
             return self._original_markdown

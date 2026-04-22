@@ -24,7 +24,7 @@ class AppConfig:
     appdata_var_name = localappdata_var_name
     startup_error_title = "Startup error"
     missing_appdata_message = (
-        "Unable to determine the user application data directory from LOCALAPPDATA."
+        "Unable to determine the user application data folder from LOCALAPPDATA."
     )
     unsupported_platform_message = "Only Windows platform is supported."
 
@@ -241,8 +241,8 @@ sidebar_width = 226
 window_state = normal
 ; allowed: left, right, hidden
 sidebar_position = left
-; allowed: visible, hidden
-toolbar_visibility = hidden
+; allowed: on, off
+toolbar_status = off
 """
 
 

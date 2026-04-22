@@ -1,5 +1,5 @@
 param(
-    [string]$Version = '0.1.0',
+    [string]$Version,
     [string]$ReleaseName,
     [switch]$SkipBuild,
     [switch]$SkipDependencyInstall
@@ -8,8 +8,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$buildVersionHelper = Join-Path $repoRoot 'tools\build_version.ps1'
 $releaseDir = Join-Path $repoRoot 'release'
 $distExe = Join-Path $repoRoot 'dist\simple-markdown-gui.exe'
+
+. $buildVersionHelper
+
+if (-not $Version) {
+    $Version = Get-CurrentRepoVersion -RepoRoot $repoRoot
+}
 
 if (-not $ReleaseName) {
     $ReleaseName = "simple-markdown-gui-windows-x64-v$Version"
@@ -26,9 +33,12 @@ try {
         $buildArgs = @(
             '-NoProfile',
             '-ExecutionPolicy', 'Bypass',
-            '-File', (Join-Path $repoRoot 'build_windows.ps1'),
-            '-Version', $Version
+            '-File', (Join-Path $repoRoot 'build_windows.ps1')
         )
+
+        if ($Version) {
+            $buildArgs += @('-Version', $Version)
+        }
 
         if ($SkipDependencyInstall) {
             $buildArgs += '-SkipDependencyInstall'
