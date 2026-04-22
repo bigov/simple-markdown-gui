@@ -11,6 +11,7 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pythonExe = Join-Path $repoRoot '.venv\Scripts\python.exe'
+$sourceDir = Join-Path $repoRoot 'src'
 $distDir = Join-Path $repoRoot 'dist'
 $buildRoot = Join-Path $env:TEMP ('simple-markdown-gui-pyinstaller-' + (Get-Date -Format 'yyyyMMddHHmmss'))
 $pyInstallerDistDir = Join-Path $buildRoot 'dist'
@@ -20,6 +21,7 @@ $faviconPath = Join-Path $repoRoot 'src\resources\icon.png'
 $resourceHelper = Join-Path $repoRoot 'tools\prepare_windows_build_resources.py'
 $buildVersionHelper = Join-Path $repoRoot 'tools\build_version.ps1'
 $specFilePath = Join-Path $repoRoot 'simple-markdown-gui.spec'
+$entryScriptPath = Join-Path $repoRoot 'src\main.py'
 $iconPath = Join-Path $resourceDir 'simple-markdown-gui.ico'
 $versionFilePath = Join-Path $resourceDir 'version_info.txt'
 $exeName = 'simple-markdown-gui.exe'
@@ -66,6 +68,7 @@ try {
 
     $env:SMG_ICON_PATH = $iconPath
     $env:SMG_VERSION_FILE = $versionFilePath
+    $hasExistingSpec = Test-Path $specFilePath
 
     $pyInstallerArgs = @(
         '-m', 'PyInstaller',
@@ -73,9 +76,24 @@ try {
         '--clean',
         '--log-level', 'WARN',
         '--distpath', $pyInstallerDistDir,
-        '--workpath', $workDir,
-        $specFilePath
+        '--workpath', $workDir
     )
+
+    if ($hasExistingSpec) {
+        $pyInstallerArgs += $specFilePath
+    }
+    else {
+        $pyInstallerArgs += @(
+            '--specpath', $workDir,
+            '--name', 'simple-markdown-gui',
+            '--onefile',
+            '--windowed',
+            '--paths', $sourceDir,
+            '--icon', $iconPath,
+            '--version-file', $versionFilePath,
+            $entryScriptPath
+        )
+    }
 
     & $pythonExe @pyInstallerArgs
     $pyInstallerExitCode = $LASTEXITCODE
