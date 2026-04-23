@@ -6,9 +6,8 @@ import os
 
 from PySide6.QtCore import Qt, QTimer, QByteArray
 from PySide6.QtGui import QAction, QCloseEvent, QPalette
-from PySide6.QtWidgets import QMenu
-from PySide6.QtWidgets import QApplication, QFrame, QLabel, QMainWindow
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QApplication, QMenu, QMessageBox
+from PySide6.QtWidgets import QFrame, QLabel, QMainWindow
 
 from config import AppConfig, setup_app_icon, configure_app_identity
 
@@ -24,15 +23,13 @@ except ImportError:
 
 from toolbar import create_toolbar
 from menubar import create_menu_bar
-from files_panel import initialize_files
+from editor_state import EditorState
+from files_panel import FilesPanelState, init_files_panel
 from filesystem import load_file, load_file_by_path, save_current_file
-from tools_git import (
-    handle_post_save_git_actions,
-    initialize_git_integration,
-)
+from tools_git import check_git, handle_post_save_git_actions
 
 
-class MyApp(MasterPanel, QMainWindow):
+class MainWindow(MasterPanel, QMainWindow):
     """Main class Simple Markdown GUI"""
 
     app_title = "Simple Markdown GUI"
@@ -49,12 +46,13 @@ class MyApp(MasterPanel, QMainWindow):
     italic_action: QAction
     strikethrough_action: QAction
     edit_menu: QMenu
+    files_panel: FilesPanelState
+    editor_state: EditorState
 
     def __init__(self):
         QMainWindow.__init__(self)
         self.config_path = AppConfig.ensure_config_exists()
-        self.current_file_path = None
-        self.current_files_directory = None
+        self.editor_state = EditorState()
         self._original_markdown = ""  # Store original markdown when in preview mode
         self._editor_markdown = ""
         self._status_mode = "Режим форматированного редактирования"
@@ -71,19 +69,8 @@ class MyApp(MasterPanel, QMainWindow):
         config = configparser.ConfigParser()
         config.read(self.config_path)
 
-        self.resize(800, 600)
-
-        # Create navigation panel with file list and connect its click handler.
-        (
-            self.files,
-            self.file_model,
-            self.files_proxy_model,
-            self.files_container,
-            self.files_layout,
-            self.files_dock,
-            self.base_dir,
-            startup_file,
-        ) = initialize_files(
+        # Keep files panel internals grouped in one state object.
+        self.files_panel = init_files_panel(
             self,
             config,
             self.config_section_name,
@@ -91,6 +78,7 @@ class MyApp(MasterPanel, QMainWindow):
             self._apply_panel_frame_style,
             self._sync_panel_layout,
         )
+        startup_file = self.files_panel.startup_file
 
         self._configure_panel_appearance()
         create_menu_bar(self)
@@ -115,28 +103,53 @@ class MyApp(MasterPanel, QMainWindow):
         self._panel_sizes_restored = False
         self._restore_window_state(config)
         self.update_save_action_state()
-        initialize_git_integration(self, self.base_dir)
+        check_git(self, self.base_dir)
 
         if startup_file:
             load_file_by_path(startup_file, self)
 
+    @property
+    def base_dir(self):
+        return self.files_panel.base_dir
+
+    @base_dir.setter
+    def base_dir(self, value):
+        self.files_panel.base_dir = value
+
+    @property
+    def current_files_directory(self):
+        return self.files_panel.current_directory
+
+    @current_files_directory.setter
+    def current_files_directory(self, value):
+        self.files_panel.current_directory = value
+
+    @property
+    def current_file_path(self):
+        return self.editor_state.current_file_path
+
+    @current_file_path.setter
+    def current_file_path(self, value):
+        self.editor_state.current_file_path = value
+
     def on_files_clicked(self, index):
         """Handle files file selection."""
         source_index = index
-        if hasattr(self, "files_proxy_model") and self.files_proxy_model is not None:
-            source_index = self.files_proxy_model.mapToSource(index)
+        proxy_model = self.files_panel.proxy_model
+        if proxy_model is not None:
+            source_index = proxy_model.mapToSource(index)
 
         if not source_index.isValid():
             return
 
-        clicked_path = self.file_model.filePath(source_index)
-        if self.file_model.isDir(source_index):
+        clicked_path = self.files_panel.model.filePath(source_index)
+        if self.files_panel.model.isDir(source_index):
             self.current_files_directory = clicked_path
         else:
             self.current_files_directory = os.path.dirname(clicked_path)
             if not self.confirm_close_editor():
                 return
-            load_file(self.file_model, source_index, self)
+            load_file(self.files_panel.model, source_index, self)
 
     def update_save_action_state(self):
         is_modified = self.editor.document().isModified()
@@ -188,8 +201,8 @@ class MyApp(MasterPanel, QMainWindow):
         files_left = outer_margin
         files_right = outer_margin
 
-        if self.files_dock.isVisible():
-            dock_area = self.dockWidgetArea(self.files_dock)
+        if self.files_panel.dock.isVisible():
+            dock_area = self.dockWidgetArea(self.files_panel.dock)
             if dock_area == Qt.DockWidgetArea.LeftDockWidgetArea:
                 files_right = inner_margin
                 content_left = inner_margin
@@ -200,7 +213,7 @@ class MyApp(MasterPanel, QMainWindow):
         self.content_layout.setContentsMargins(
             content_left, outer_margin, content_right, outer_margin
         )
-        self.files_layout.setContentsMargins(
+        self.files_panel.layout.setContentsMargins(
             files_left, outer_margin, files_right, outer_margin
         )
 
@@ -378,15 +391,15 @@ class MyApp(MasterPanel, QMainWindow):
 
         files_state = state_fields.get("files", "left")
         if files_state == "hidden":
-            self.files_dock.hide()
+            self.files_panel.dock.hide()
         else:
-            self.files_dock.show()
+            self.files_panel.dock.show()
             dock_area = (
                 Qt.DockWidgetArea.RightDockWidgetArea
                 if files_state == "right"
                 else Qt.DockWidgetArea.LeftDockWidgetArea
             )
-            self.addDockWidget(dock_area, self.files_dock)
+            self.addDockWidget(dock_area, self.files_panel.dock)
 
         toolbar_state = state_fields.get("toolbar", "hidden")
         self.toolbar.setVisible(toolbar_state == "visible")
@@ -427,15 +440,15 @@ class MyApp(MasterPanel, QMainWindow):
             self.showNormal()
 
         if files_position == "hidden":
-            self.files_dock.hide()
+            self.files_panel.dock.hide()
         else:
-            self.files_dock.show()
+            self.files_panel.dock.show()
             dock_area = (
                 Qt.DockWidgetArea.RightDockWidgetArea
                 if files_position == "right"
                 else Qt.DockWidgetArea.LeftDockWidgetArea
             )
-            self.addDockWidget(dock_area, self.files_dock)
+            self.addDockWidget(dock_area, self.files_panel.dock)
 
         self.toolbar.setVisible(toolbar_status != "off")
         return True
@@ -448,10 +461,10 @@ class MyApp(MasterPanel, QMainWindow):
         else:
             window_state = "normal"
 
-        if not self.files_dock.isVisible():
+        if not self.files_panel.dock.isVisible():
             files_state = "hidden"
         elif (
-            self.dockWidgetArea(self.files_dock)
+            self.dockWidgetArea(self.files_panel.dock)
             == Qt.DockWidgetArea.RightDockWidgetArea
         ):
             files_state = "right"
@@ -503,7 +516,7 @@ class MyApp(MasterPanel, QMainWindow):
         config.set(self.config_section_name, "window_left", str(geometry.x()))
         config.set(self.config_section_name, "window_top", str(geometry.y()))
         config.set(
-            self.config_section_name, "files_width", str(self.files_dock.width())
+            self.config_section_name, "files_width", str(self.files_panel.dock.width())
         )
         config.remove_option(self.config_section_name, "window_geometry")
         window_state, files_state, toolbar_state = self._serialize_state()
@@ -536,14 +549,18 @@ class MyApp(MasterPanel, QMainWindow):
     def _apply_pending_panel_sizes(self):
         if self._panel_sizes_restored or self._pending_files_width is None:
             return
-        if not self.files_dock.isVisible():
+        if not self.files_panel.dock.isVisible():
             return
         if self.width() <= 0 or self.content_widget.width() <= 0:
             return
 
-        available_width = max(1, self.files_dock.width() + self.content_widget.width())
+        available_width = max(
+            1, self.files_panel.dock.width() + self.content_widget.width()
+        )
         files_width = min(self._pending_files_width, available_width - 1)
-        self.resizeDocks([self.files_dock], [files_width], Qt.Orientation.Horizontal)
+        self.resizeDocks(
+            [self.files_panel.dock], [files_width], Qt.Orientation.Horizontal
+        )
         self._panel_sizes_restored = True
 
     def showEvent(self, event):
@@ -581,8 +598,8 @@ class MyApp(MasterPanel, QMainWindow):
 
 if __name__ == "__main__":
     configure_app_identity()
-    qt_app = QApplication(sys.argv)
-    widget = MyApp()
-    setup_app_icon(qt_app, widget)
-    widget.show()
-    sys.exit(qt_app.exec())
+    app = QApplication(sys.argv)
+    mw = MainWindow()
+    setup_app_icon(app, mw)
+    mw.show()
+    sys.exit(app.exec())

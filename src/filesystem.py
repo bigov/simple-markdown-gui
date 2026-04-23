@@ -7,12 +7,25 @@ from PySide6.QtCore import QItemSelectionModel
 from markdown_rendering import render_markdown_with_styles
 
 
+def _files_view(widget):
+    panel = getattr(widget, "files_panel", None)
+    if panel is not None:
+        return panel.files
+    return getattr(widget, "files", None)
+
+
+def _file_model(widget):
+    panel = getattr(widget, "files_panel", None)
+    if panel is not None:
+        return panel.model
+    return getattr(widget, "file_model", None)
+
+
 def _to_proxy_index(widget, model_index):
     """Convert source file model index to files model index when proxy is used."""
-    if (
-        hasattr(widget, "files_proxy_model")
-        and widget.files_proxy_model is not None
-    ):
+    if hasattr(widget, "files_panel") and widget.files_panel.proxy_model is not None:
+        return widget.files_panel.proxy_model.mapFromSource(model_index)
+    if hasattr(widget, "files_proxy_model") and widget.files_proxy_model is not None:
         return widget.files_proxy_model.mapFromSource(model_index)
     return model_index
 
@@ -81,18 +94,23 @@ def _display_file(file_path, widget):
 
         os.chdir(os.path.dirname(file_path))
 
-        file_index = widget.file_model.index(file_path)
+        file_model = _file_model(widget)
+        files_view = _files_view(widget)
+        if file_model is None or files_view is None:
+            return
+
+        file_index = file_model.index(file_path)
         if file_index.isValid():
             files_index = _to_proxy_index(widget, file_index)
             if not files_index.isValid():
                 return
 
-            widget.files.setCurrentIndex(files_index)
-            widget.files.selectionModel().select(
+            files_view.setCurrentIndex(files_index)
+            files_view.selectionModel().select(
                 files_index,
                 QItemSelectionModel.SelectionFlag.ClearAndSelect,
             )
-            widget.files.scrollTo(files_index)
+            files_view.scrollTo(files_index)
     except (OSError, UnicodeError) as error:
         print(f"Error loading file: {error}")
 
@@ -145,4 +163,3 @@ def save_current_file(widget):
         return False
 
     return _save_markdown_to_path(widget, file_path, update_current_file=True)
-

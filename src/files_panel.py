@@ -1,5 +1,6 @@
 """Files panel creation helpers."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QSortFilterProxyModel
@@ -7,12 +8,27 @@ from PySide6.QtWidgets import QDockWidget, QFileSystemModel, QTreeView, QVBoxLay
 from PySide6.QtWidgets import QWidget
 
 
+@dataclass
+class FilesPanelState:
+    """Container for files panel widgets and related state."""
+
+    files: QTreeView
+    model: QFileSystemModel
+    proxy_model: QSortFilterProxyModel
+    container: QWidget
+    layout: QVBoxLayout
+    dock: QDockWidget
+    base_dir: str
+    startup_file: str | None
+    current_directory: str | None = None
+
+
 class DotEntryFilterProxyModel(QSortFilterProxyModel):
     """Hide files and directories whose names start with a dot."""
 
     def filterAcceptsRow(self, source_row, source_parent):
         source_model = self.sourceModel()
-        if source_model is None:
+        if source_model is None or not isinstance(source_model, QFileSystemModel):
             return False
 
         source_index = source_model.index(source_row, 0, source_parent)
@@ -79,7 +95,7 @@ def create_files(base_dir=None):
 
 # Qt panel setup intentionally accepts config and callback hooks in one place.
 # pylint: disable=too-many-arguments,too-many-positional-arguments
-def initialize_files(
+def init_files_panel(
     window,
     config=None,
     config_section_name="Default",
@@ -127,14 +143,13 @@ def initialize_files(
 
     startup_file = get_startup_file_path(base_dir)
 
-    return (
-        files,
-        model,
-        proxy_model,
-        files_container,
-        files_layout,
-        files_dock,
-        base_dir,
-        startup_file,
+    return FilesPanelState(
+        files=files,
+        model=model,
+        proxy_model=proxy_model,
+        container=files_container,
+        layout=files_layout,
+        dock=files_dock,
+        base_dir=base_dir,
+        startup_file=startup_file,
     )
-

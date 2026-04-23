@@ -9,34 +9,51 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox, QLineEdit
 
 from config import AppConfig
+from filesystem import load_file_by_path
+
+
+def _files_view(window):
+    panel = getattr(window, "files_panel", None)
+    if panel is not None:
+        return panel.files
+    return getattr(window, "files", None)
+
+
+def _file_model(window):
+    panel = getattr(window, "files_panel", None)
+    if panel is not None:
+        return panel.model
+    return getattr(window, "file_model", None)
+
+
+def _files_dock(window):
+    panel = getattr(window, "files_panel", None)
+    if panel is not None:
+        return panel.dock
+    return getattr(window, "files_dock", None)
 
 
 def _to_source_index(window, model_index):
     """Convert files model index to source file model index when proxy is used."""
-    if (
-        hasattr(window, "files_proxy_model")
-        and window.files_proxy_model is not None
-    ):
+    if hasattr(window, "files_panel") and window.files_panel.proxy_model is not None:
+        return window.files_panel.proxy_model.mapToSource(model_index)
+    if hasattr(window, "files_proxy_model") and window.files_proxy_model is not None:
         return window.files_proxy_model.mapToSource(model_index)
     return model_index
 
 
 def _to_proxy_index(window, model_index):
     """Convert source file model index to files model index when proxy is used."""
-    if (
-        hasattr(window, "files_proxy_model")
-        and window.files_proxy_model is not None
-    ):
+    if hasattr(window, "files_panel") and window.files_panel.proxy_model is not None:
+        return window.files_panel.proxy_model.mapFromSource(model_index)
+    if hasattr(window, "files_proxy_model") and window.files_proxy_model is not None:
         return window.files_proxy_model.mapFromSource(model_index)
     return model_index
 
 
 def _current_directory(window):
     """Return the working directory based on files selection or open file."""
-    if (
-        hasattr(window, "current_files_directory")
-        and window.current_files_directory
-    ):
+    if hasattr(window, "current_files_directory") and window.current_files_directory:
         return window.current_files_directory
     if window.current_file_path:
         return os.path.dirname(window.current_file_path)
@@ -47,10 +64,12 @@ def _current_directory(window):
 
 def _selected_files_item(window):
     """Return selected files path info as (path, is_dir) or (None, False)."""
-    if not hasattr(window, "files") or not hasattr(window, "file_model"):
+    files_view = _files_view(window)
+    file_model = _file_model(window)
+    if files_view is None or file_model is None:
         return None, False
 
-    current_index = window.files.currentIndex()
+    current_index = files_view.currentIndex()
     if not current_index.isValid():
         return None, False
 
@@ -58,11 +77,11 @@ def _selected_files_item(window):
     if not source_index.isValid():
         return None, False
 
-    selected_path = window.file_model.filePath(source_index)
+    selected_path = file_model.filePath(source_index)
     if not selected_path:
         return None, False
 
-    return selected_path, window.file_model.isDir(source_index)
+    return selected_path, file_model.isDir(source_index)
 
 
 def _is_empty_directory(path):
@@ -73,13 +92,18 @@ def _is_empty_directory(path):
 
 def _select_files_path(window, abs_path):
     """Select the provided absolute path in files if model can resolve it."""
-    source_index = window.file_model.index(abs_path)
+    files_view = _files_view(window)
+    file_model = _file_model(window)
+    if files_view is None or file_model is None:
+        return
+
+    source_index = file_model.index(abs_path)
     if source_index.isValid():
         file_index = _to_proxy_index(window, source_index)
         if not file_index.isValid():
             return
-        window.files.setCurrentIndex(file_index)
-        window.files.selectionModel().select(
+        files_view.setCurrentIndex(file_index)
+        files_view.selectionModel().select(
             file_index,
             QItemSelectionModel.SelectionFlag.ClearAndSelect,
         )
@@ -289,10 +313,6 @@ def create_file_in_current_directory(window):
     if hasattr(window, "load_file_by_path_fn"):
         window.load_file_by_path_fn(abs_path)
     else:
-        from filesystem import (
-            load_file_by_path,
-        )
-
         load_file_by_path(abs_path, window)
 
     _select_files_path(window, abs_path)
@@ -349,17 +369,15 @@ def open_markdown_file(window):
     abs_path = os.path.abspath(file_path)
     base_dir = os.path.dirname(abs_path)
 
-    if hasattr(window, "file_model") and hasattr(window, "files"):
-        root_index = window.file_model.setRootPath(base_dir)
-        window.files.setRootIndex(_to_proxy_index(window, root_index))
+    files_view = _files_view(window)
+    file_model = _file_model(window)
+    if files_view is not None and file_model is not None:
+        root_index = file_model.setRootPath(base_dir)
+        files_view.setRootIndex(_to_proxy_index(window, root_index))
 
     if hasattr(window, "load_file_by_path_fn"):
         window.load_file_by_path_fn(abs_path)
     else:
-        from filesystem import (
-            load_file_by_path,
-        )
-
         load_file_by_path(abs_path, window)
 
     window.base_dir = base_dir
@@ -438,11 +456,12 @@ def create_menu_bar(window):
     window.edit_menu.addAction(window.strikethrough_action)
 
     view_menu = window.menuBar().addMenu("&View")
-    view_menu.addAction(window.files_dock.toggleViewAction())
+    files_dock = _files_dock(window)
+    if files_dock is not None:
+        view_menu.addAction(files_dock.toggleViewAction())
     view_menu.addAction(window.toolbar.toggleViewAction())
 
     help_menu = window.menuBar().addMenu("&Help")
     window.about_action = QAction("About", window)
     window.about_action.triggered.connect(window.show_about_dialog)
     help_menu.addAction(window.about_action)
-

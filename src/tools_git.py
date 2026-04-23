@@ -264,7 +264,7 @@ def prompt_git_push_after_save(parent_widget, base_dir, git_enable):
     )
 
 
-def initialize_git_integration(parent_widget, base_dir):
+def check_git(parent_widget, base_dir):
     """Initialize git_enable and run startup pull prompt when applicable."""
     git_enable = is_git_repository_root(base_dir)
     parent_widget.git_enable = git_enable
