@@ -247,52 +247,59 @@ toolbar_status = off
 
 
 DEFAULT_STYLES_TEMPLATE = """
+
 /* Styles for Markdown content in QTextBrowser */
 
-/* Body styles */
 body {
-    font-family: 'Segoe UI', 'Noto Sans', Arial, Helvetica, sans-serif;
+    font-family: 'Adwaita Mono', 'Noto Sans', Arial, Helvetica, sans-serif;
     font-size: 10pt;
     color: #333;
     background-color: #fff;
     margin: 12px 8px 12px 12px;
 }
 
-/* Headings */
 h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
     display: block;
     color: #2c3e50;
     font-weight: bold;
+    margin-bottom: 0.2em;
 }
 .h6, h6 {
     font-size: 10pt;
+    margin-top: 1.0em;
 }
 
 .h5, h5 {
     font-size: 11pt;
+    margin-top: 1.0em;
 }
+
 .h4, h4 {
     font-size: 12pt;
+    margin-top: 1.0em;
 }
+
 .h3, h3 {
     font-size: 13pt;
+    margin-top: 1.0em;
 }
+
 .h2, h2 {
     font-size: 14pt;
-    margin-bottom: 0.2em;
+    margin-top: 1.0em;
+    margin-bottom: 0.25em;
 }
+
 .h1, h1 {
     font-size: 15pt;
     margin-top: 1.5em;
     margin-bottom: 0.3em;
 }
 
-/* Paragraphs */
 p {
     margin-bottom: 1em;
 }
 
-/* Links */
 a {
     color: #2659D1;
     text-decoration: none;
@@ -302,7 +309,6 @@ a:hover {
     text-decoration: underline;
 }
 
-/* Lists */
 ul {
     margin-left: -1em;
 }
@@ -312,9 +318,8 @@ ol, li {
     padding: 0;
 }
 
-/* Code blocks */
 pre, code {
-    font-family: 'Noto Sans Mono Condensed Medium', 'Noto Sans Mono Condensed', 'Noto Sans Mono', 'Cascadia Mono', monospace;
+    font-family: 'Adwaita Mono', 'Noto Sans Mono Condensed Medium', 'Noto Sans Mono Condensed', 'Noto Sans Mono', 'Cascadia Mono', monospace;
     font-size: 10pt;
     background-color: #f1f1f1;
 }
@@ -351,7 +356,6 @@ table.code-block pre {
     background-color: #f1f1f1;
 }
 
-/* Blockquotes */
 blockquote {
     border-left: 4px solid #3498db;
     padding-left: 1em;
@@ -361,7 +365,6 @@ blockquote {
     font-style: italic;
 }
 
-/* Tables */
 table {
     border-collapse: collapse;
     margin: 0.5em 0 1em 0;
@@ -378,14 +381,12 @@ th {
     font-weight: bold;
 }
 
-/* Horizontal rules */
 hr {
     border: none;
     border-top: 1px solid #ddd;
     margin: 2em 0;
 }
 
-/* Images */
 img {
     max-width: 100%;
     height: auto;
@@ -393,7 +394,6 @@ img {
     margin: 1em auto;
 }
 
-/* Emphasis */
 strong {
     font-weight: bold;
 }
