@@ -84,12 +84,67 @@ def _split_markdown_chunks(markdown_text):
 
 # Removes inline formatting markers so unchanged blocks can still be matched reliably.
 def _normalize_inline_markdown(text):
+    if "```" not in text and "~~~" not in text and text.count("`") % 2 == 1:
+        # Qt may wrap a multi-line paragraph with one opening backtick on the
+        # first line and one closing backtick on the last line. Normalize such
+        # dangling markers in line signatures so unchanged text still matches.
+        text = re.sub(r"^(\s*(?:>\s*)?)`", r"\1", text)
+        text = re.sub(r"^((?:\s*[-+*]\s+))`", r"\1", text)
+        text = re.sub(r"`(\s*)$", r"\1", text)
+        if text.count("`") % 2 == 1:
+            text = text.replace("`", "", 1)
+
     text = re.sub(r"<u>(.*?)</u>", r"\1", text)
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
     text = re.sub(r"\*(.*?)\*", r"\1", text)
     text = re.sub(r"~~(.*?)~~", r"\1", text)
     text = re.sub(r"`([^`]*)`", r"\1", text)
     return text
+
+
+def _normalize_table_line_signature(line):
+    stripped = line.strip()
+    if "|" not in stripped:
+        return None
+
+    cells = [cell.strip() for cell in stripped.split("|")]
+    while cells and cells[0] == "":
+        cells.pop(0)
+    while cells and cells[-1] == "":
+        cells.pop()
+
+    if len(cells) < 2:
+        return None
+
+    normalized_cells = [_normalize_inline_markdown(cell) for cell in cells]
+
+    is_separator_row = all(
+        re.fullmatch(r":?-{3,}:?", cell) for cell in normalized_cells
+    )
+    if is_separator_row:
+        return f"table-sep:{'|'.join(normalized_cells)}"
+
+    return f"table-row:{'|'.join(normalized_cells)}"
+
+
+def _strip_list_item_backtick_wrap(markdown_text):
+    """Strip Qt artifact: entire list-item content wrapped in a single backtick pair.
+
+    When a code block immediately precedes a list, Qt's font-rendering may mark
+    the list-item text as monospace (code font) and then emit it surrounded by
+    backticks in toMarkdown().  This is always an artifact — intentional inline
+    code inside a list item would never wrap the *entire* content.
+    """
+    result = []
+    for line in markdown_text.splitlines(keepends=True):
+        eol = "\n" if line.endswith("\n") else ""
+        stripped = line.rstrip("\n")
+        m = re.match(r"^(\s*[-*+]\s+)(`[^`]+`)(\s*)$", stripped)
+        if m:
+            inner = m.group(2)[1:-1]
+            stripped = m.group(1) + inner + m.group(3)
+        result.append(stripped + eol)
+    return "".join(result)
 
 
 def _restore_qt_table_wrapped_code_blocks(markdown_text):
@@ -133,9 +188,52 @@ def _chunk_signature(chunk):
 
     normalized_lines = []
     for line in lines:
+        table_signature = _normalize_table_line_signature(line)
+        if table_signature is not None:
+            normalized_lines.append(table_signature)
+            continue
         line = re.sub(r"^#{1,6}\s+", "", line)
         normalized_lines.append(_normalize_inline_markdown(line).strip())
     return "\n".join(normalized_lines).strip()
+
+
+def _line_signature(line):
+    line = line.rstrip("\r\n")
+    table_signature = _normalize_table_line_signature(line)
+    if table_signature is not None:
+        return table_signature
+    line = re.sub(r"^#{1,6}\s+", "", line)
+    return _normalize_inline_markdown(line).strip()
+
+
+def _merge_chunk_preserving_unchanged_lines(original_chunk, edited_chunk):
+    original_lines = original_chunk.block.splitlines(keepends=True)
+    edited_lines = edited_chunk.block.splitlines(keepends=True)
+
+    if not original_lines or not edited_lines:
+        return edited_chunk
+
+    if _is_fenced_chunk([line.rstrip("\r\n") for line in edited_lines]):
+        return edited_chunk
+
+    original_signatures = [_line_signature(line) for line in original_lines]
+    edited_signatures = [_line_signature(line) for line in edited_lines]
+
+    merged_lines = []
+    matcher = SequenceMatcher(None, original_signatures, edited_signatures)
+    for (
+        tag,
+        original_start,
+        original_end,
+        edited_start,
+        edited_end,
+    ) in matcher.get_opcodes():
+        if tag == "equal":
+            merged_lines.extend(original_lines[original_start:original_end])
+            continue
+        merged_lines.extend(edited_lines[edited_start:edited_end])
+
+    return MarkdownChunk("".join(merged_lines), edited_chunk.separator)
 
 
 # Checks whether a chunk starts with a markdown heading marker.
@@ -165,7 +263,9 @@ def _demote_inherited_heading(chunk, previous_chunk):
 def preserve_roundtrip_markdown(original_markdown, edited_markdown):
     original_chunks = _split_markdown_chunks(original_markdown)
     edited_chunks = _split_markdown_chunks(
-        _restore_qt_table_wrapped_code_blocks(edited_markdown)
+        _strip_list_item_backtick_wrap(
+            _restore_qt_table_wrapped_code_blocks(edited_markdown)
+        )
     )
 
     original_signatures = [_chunk_signature(chunk) for chunk in original_chunks]
@@ -185,7 +285,14 @@ def preserve_roundtrip_markdown(original_markdown, edited_markdown):
             merged_chunks.extend(original_chunks[original_start:original_end])
             continue
 
-        for chunk in edited_chunks[edited_start:edited_end]:
+        edited_slice = edited_chunks[edited_start:edited_end]
+        original_slice = original_chunks[original_start:original_end]
+
+        for index, chunk in enumerate(edited_slice):
+            if index < len(original_slice):
+                chunk = _merge_chunk_preserving_unchanged_lines(
+                    original_slice[index], chunk
+                )
             previous_chunk = merged_chunks[-1] if merged_chunks else None
             merged_chunks.append(_demote_inherited_heading(chunk, previous_chunk))
 

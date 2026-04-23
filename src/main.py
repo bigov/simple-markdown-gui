@@ -26,6 +26,10 @@ from toolbar import create_toolbar
 from menubar import create_menu_bar
 from files_panel import initialize_files
 from filesystem import load_file, load_file_by_path, save_current_file
+from tools_git import (
+    handle_post_save_git_actions,
+    initialize_git_integration,
+)
 
 
 class MyApp(MasterPanel, QMainWindow):
@@ -111,6 +115,7 @@ class MyApp(MasterPanel, QMainWindow):
         self._panel_sizes_restored = False
         self._restore_window_state(config)
         self.update_save_action_state()
+        initialize_git_integration(self, self.base_dir)
 
         if startup_file:
             load_file_by_path(startup_file, self)
@@ -562,6 +567,7 @@ class MyApp(MasterPanel, QMainWindow):
         self.update_save_action_state()
         self.notify_current_file_changed()
         self.show_status_message("Файл сохранен", 3000)
+        handle_post_save_git_actions(self, self.base_dir)
 
     def closeEvent(self, event: QCloseEvent):
         # Save window geometry and dock/toolbar layout to config
