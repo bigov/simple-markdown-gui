@@ -8,12 +8,12 @@ from markdown_rendering import render_markdown_with_styles
 
 
 def _to_proxy_index(widget, model_index):
-    """Convert source file model index to sidebar model index when proxy is used."""
+    """Convert source file model index to files model index when proxy is used."""
     if (
-        hasattr(widget, "sidebar_proxy_model")
-        and widget.sidebar_proxy_model is not None
+        hasattr(widget, "files_proxy_model")
+        and widget.files_proxy_model is not None
     ):
-        return widget.sidebar_proxy_model.mapFromSource(model_index)
+        return widget.files_proxy_model.mapFromSource(model_index)
     return model_index
 
 
@@ -83,16 +83,16 @@ def _display_file(file_path, widget):
 
         file_index = widget.file_model.index(file_path)
         if file_index.isValid():
-            sidebar_index = _to_proxy_index(widget, file_index)
-            if not sidebar_index.isValid():
+            files_index = _to_proxy_index(widget, file_index)
+            if not files_index.isValid():
                 return
 
-            widget.sidebar.setCurrentIndex(sidebar_index)
-            widget.sidebar.selectionModel().select(
-                sidebar_index,
+            widget.files.setCurrentIndex(files_index)
+            widget.files.selectionModel().select(
+                files_index,
                 QItemSelectionModel.SelectionFlag.ClearAndSelect,
             )
-            widget.sidebar.scrollTo(sidebar_index)
+            widget.files.scrollTo(files_index)
     except (OSError, UnicodeError) as error:
         print(f"Error loading file: {error}")
 
@@ -145,3 +145,4 @@ def save_current_file(widget):
         return False
 
     return _save_markdown_to_path(widget, file_path, update_current_file=True)
+

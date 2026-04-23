@@ -12,32 +12,32 @@ from config import AppConfig
 
 
 def _to_source_index(window, model_index):
-    """Convert sidebar model index to source file model index when proxy is used."""
+    """Convert files model index to source file model index when proxy is used."""
     if (
-        hasattr(window, "sidebar_proxy_model")
-        and window.sidebar_proxy_model is not None
+        hasattr(window, "files_proxy_model")
+        and window.files_proxy_model is not None
     ):
-        return window.sidebar_proxy_model.mapToSource(model_index)
+        return window.files_proxy_model.mapToSource(model_index)
     return model_index
 
 
 def _to_proxy_index(window, model_index):
-    """Convert source file model index to sidebar model index when proxy is used."""
+    """Convert source file model index to files model index when proxy is used."""
     if (
-        hasattr(window, "sidebar_proxy_model")
-        and window.sidebar_proxy_model is not None
+        hasattr(window, "files_proxy_model")
+        and window.files_proxy_model is not None
     ):
-        return window.sidebar_proxy_model.mapFromSource(model_index)
+        return window.files_proxy_model.mapFromSource(model_index)
     return model_index
 
 
 def _current_directory(window):
-    """Return the working directory based on sidebar selection or open file."""
+    """Return the working directory based on files selection or open file."""
     if (
-        hasattr(window, "current_sidebar_directory")
-        and window.current_sidebar_directory
+        hasattr(window, "current_files_directory")
+        and window.current_files_directory
     ):
-        return window.current_sidebar_directory
+        return window.current_files_directory
     if window.current_file_path:
         return os.path.dirname(window.current_file_path)
     if hasattr(window, "base_dir"):
@@ -45,12 +45,12 @@ def _current_directory(window):
     return os.getcwd()
 
 
-def _selected_sidebar_item(window):
-    """Return selected sidebar path info as (path, is_dir) or (None, False)."""
-    if not hasattr(window, "sidebar") or not hasattr(window, "file_model"):
+def _selected_files_item(window):
+    """Return selected files path info as (path, is_dir) or (None, False)."""
+    if not hasattr(window, "files") or not hasattr(window, "file_model"):
         return None, False
 
-    current_index = window.sidebar.currentIndex()
+    current_index = window.files.currentIndex()
     if not current_index.isValid():
         return None, False
 
@@ -71,23 +71,23 @@ def _is_empty_directory(path):
     return directory.is_dir() and not any(directory.iterdir())
 
 
-def _select_sidebar_path(window, abs_path):
-    """Select the provided absolute path in sidebar if model can resolve it."""
+def _select_files_path(window, abs_path):
+    """Select the provided absolute path in files if model can resolve it."""
     source_index = window.file_model.index(abs_path)
     if source_index.isValid():
         file_index = _to_proxy_index(window, source_index)
         if not file_index.isValid():
             return
-        window.sidebar.setCurrentIndex(file_index)
-        window.sidebar.selectionModel().select(
+        window.files.setCurrentIndex(file_index)
+        window.files.selectionModel().select(
             file_index,
             QItemSelectionModel.SelectionFlag.ClearAndSelect,
         )
 
 
 def rename_selected_item(window):
-    """Rename selected file or directory from the sidebar."""
-    selected_path, _is_dir = _selected_sidebar_item(window)
+    """Rename selected file or directory from the files."""
+    selected_path, _is_dir = _selected_files_item(window)
     if not selected_path:
         QMessageBox.information(
             window,
@@ -148,21 +148,21 @@ def rename_selected_item(window):
         if hasattr(window, "notify_current_file_changed"):
             window.notify_current_file_changed()
 
-    if getattr(window, "current_sidebar_directory", None):
-        sidebar_dir = pathlib.Path(window.current_sidebar_directory)
+    if getattr(window, "current_files_directory", None):
+        files_dir = pathlib.Path(window.current_files_directory)
         try:
-            relative = sidebar_dir.relative_to(source_path)
-            window.current_sidebar_directory = str(target_path / relative)
+            relative = files_dir.relative_to(source_path)
+            window.current_files_directory = str(target_path / relative)
         except ValueError:
-            if sidebar_dir == source_path:
-                window.current_sidebar_directory = new_abs_path
+            if files_dir == source_path:
+                window.current_files_directory = new_abs_path
 
-    _select_sidebar_path(window, new_abs_path)
+    _select_files_path(window, new_abs_path)
 
 
 def delete_selected_empty_directory(window):
     """Delete the selected directory only when it is empty."""
-    selected_path, is_dir = _selected_sidebar_item(window)
+    selected_path, is_dir = _selected_files_item(window)
     if not selected_path or not is_dir:
         QMessageBox.information(
             window,
@@ -201,13 +201,13 @@ def delete_selected_empty_directory(window):
         return
 
     parent_dir = str(dir_path.parent.resolve())
-    window.current_sidebar_directory = parent_dir
-    _select_sidebar_path(window, parent_dir)
+    window.current_files_directory = parent_dir
+    _select_files_path(window, parent_dir)
 
 
 def update_file_menu_actions_state(window):
-    """Enable or disable file menu actions based on current sidebar selection."""
-    selected_path, is_dir = _selected_sidebar_item(window)
+    """Enable or disable file menu actions based on current files selection."""
+    selected_path, is_dir = _selected_files_item(window)
     has_selection = bool(selected_path)
 
     if hasattr(window, "rename_item_action"):
@@ -295,8 +295,8 @@ def create_file_in_current_directory(window):
 
         load_file_by_path(abs_path, window)
 
-    _select_sidebar_path(window, abs_path)
-    window.current_sidebar_directory = os.path.dirname(abs_path)
+    _select_files_path(window, abs_path)
+    window.current_files_directory = os.path.dirname(abs_path)
 
 
 def create_subdirectory_in_current_directory(window):
@@ -349,9 +349,9 @@ def open_markdown_file(window):
     abs_path = os.path.abspath(file_path)
     base_dir = os.path.dirname(abs_path)
 
-    if hasattr(window, "file_model") and hasattr(window, "sidebar"):
+    if hasattr(window, "file_model") and hasattr(window, "files"):
         root_index = window.file_model.setRootPath(base_dir)
-        window.sidebar.setRootIndex(_to_proxy_index(window, root_index))
+        window.files.setRootIndex(_to_proxy_index(window, root_index))
 
     if hasattr(window, "load_file_by_path_fn"):
         window.load_file_by_path_fn(abs_path)
@@ -363,7 +363,7 @@ def open_markdown_file(window):
         load_file_by_path(abs_path, window)
 
     window.base_dir = base_dir
-    window.current_sidebar_directory = base_dir
+    window.current_files_directory = base_dir
 
     try:
         config = configparser.ConfigParser()
@@ -438,10 +438,11 @@ def create_menu_bar(window):
     window.edit_menu.addAction(window.strikethrough_action)
 
     view_menu = window.menuBar().addMenu("&View")
-    view_menu.addAction(window.sidebar_dock.toggleViewAction())
+    view_menu.addAction(window.files_dock.toggleViewAction())
     view_menu.addAction(window.toolbar.toggleViewAction())
 
     help_menu = window.menuBar().addMenu("&Help")
     window.about_action = QAction("About", window)
     window.about_action.triggered.connect(window.show_about_dialog)
     help_menu.addAction(window.about_action)
+

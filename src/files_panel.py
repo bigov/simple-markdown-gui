@@ -35,8 +35,8 @@ def resolve_base_dir(base_dir=None):
     return str(base_path)
 
 
-def get_sidebar_base_dir(config, section_name="Default"):
-    """Read and resolve the sidebar base directory from app config."""
+def get_files_base_dir(config, section_name="Default"):
+    """Read and resolve the files base directory from app config."""
     configured_base_dir = "./"
     if config.has_section(section_name):
         configured_base_dir = config.get(section_name, "base_dir", fallback="./")
@@ -52,34 +52,34 @@ def get_startup_file_path(base_dir, startup_file_name="index.md"):
     return None
 
 
-def create_sidebar(base_dir=None):
-    """Create a sidebar with file system tree view."""
+def create_files(base_dir=None):
+    """Create a files with file system tree view."""
     base_path = Path(resolve_base_dir(base_dir))
 
-    sidebar = QTreeView()
+    files = QTreeView()
     model = QFileSystemModel()
     model.setRootPath(str(base_path))
-    proxy_model = DotEntryFilterProxyModel(sidebar)
+    proxy_model = DotEntryFilterProxyModel(files)
     proxy_model.setRecursiveFilteringEnabled(True)
     proxy_model.setSourceModel(model)
 
-    sidebar.setModel(proxy_model)
-    sidebar.setRootIndex(proxy_model.mapFromSource(model.index(str(base_path))))
-    sidebar.setHeaderHidden(True)
+    files.setModel(proxy_model)
+    files.setRootIndex(proxy_model.mapFromSource(model.index(str(base_path))))
+    files.setHeaderHidden(True)
 
     # Hide columns except name
-    sidebar.hideColumn(1)  # Size column
-    sidebar.hideColumn(2)  # Type column
-    sidebar.hideColumn(3)  # Date Modified column
+    files.hideColumn(1)  # Size column
+    files.hideColumn(2)  # Type column
+    files.hideColumn(3)  # Date Modified column
 
-    sidebar.setColumnWidth(0, 100)
+    files.setColumnWidth(0, 100)
 
-    return sidebar, model, proxy_model
+    return files, model, proxy_model
 
 
 # Qt panel setup intentionally accepts config and callback hooks in one place.
 # pylint: disable=too-many-arguments,too-many-positional-arguments
-def initialize_sidebar(
+def initialize_files(
     window,
     config=None,
     config_section_name="Default",
@@ -87,53 +87,54 @@ def initialize_sidebar(
     frame_style_handler=None,
     layout_sync_handler=None,
 ):
-    """Create and attach the sidebar widgets to the main window."""
+    """Create and attach the files widgets to the main window."""
     if config is None:
         base_dir = resolve_base_dir()
     else:
-        base_dir = get_sidebar_base_dir(config, config_section_name)
+        base_dir = get_files_base_dir(config, config_section_name)
 
-    sidebar, model, proxy_model = create_sidebar(base_dir)
+    files, model, proxy_model = create_files(base_dir)
 
     if click_handler is not None:
-        sidebar.clicked.connect(click_handler)
+        files.clicked.connect(click_handler)
 
     if frame_style_handler is not None:
-        frame_style_handler(sidebar)
+        frame_style_handler(files)
 
-    sidebar_container = QWidget()
-    sidebar_layout = QVBoxLayout(sidebar_container)
-    sidebar_layout.setContentsMargins(
+    files_container = QWidget()
+    files_layout = QVBoxLayout(files_container)
+    files_layout.setContentsMargins(
         window.panel_margin,
         window.panel_margin,
         window.panel_margin,
         window.panel_margin,
     )
-    sidebar_layout.setSpacing(0)
-    sidebar_layout.addWidget(sidebar)
+    files_layout.setSpacing(0)
+    files_layout.addWidget(files)
 
-    sidebar_dock = QDockWidget("Files", window)
-    sidebar_dock.setObjectName("sidebar_dock")
-    sidebar_dock.setAllowedAreas(
+    files_dock = QDockWidget("Files", window)
+    files_dock.setObjectName("files_dock")
+    files_dock.setAllowedAreas(
         Qt.DockWidgetArea.LeftDockWidgetArea | Qt.DockWidgetArea.RightDockWidgetArea
     )
-    sidebar_dock.setWidget(sidebar_container)
-    sidebar_dock.setTitleBarWidget(QWidget())
-    window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, sidebar_dock)
+    files_dock.setWidget(files_container)
+    files_dock.setTitleBarWidget(QWidget())
+    window.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, files_dock)
 
     if layout_sync_handler is not None:
-        sidebar_dock.dockLocationChanged.connect(layout_sync_handler)
-        sidebar_dock.visibilityChanged.connect(layout_sync_handler)
+        files_dock.dockLocationChanged.connect(layout_sync_handler)
+        files_dock.visibilityChanged.connect(layout_sync_handler)
 
     startup_file = get_startup_file_path(base_dir)
 
     return (
-        sidebar,
+        files,
         model,
         proxy_model,
-        sidebar_container,
-        sidebar_layout,
-        sidebar_dock,
+        files_container,
+        files_layout,
+        files_dock,
         base_dir,
         startup_file,
     )
+

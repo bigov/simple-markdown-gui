@@ -236,11 +236,11 @@ window_width = 1025
 window_height = 941
 window_left = 40
 window_top = 40
-sidebar_width = 226
+files_width = 226
 ; allowed: normal, maximized, fullscreen
 window_state = normal
 ; allowed: left, right, hidden
-sidebar_position = left
+files_position = left
 ; allowed: visible, hidden
 toolbar_status = off
 """
@@ -403,3 +403,4 @@ em {
 }
 
 """
+

@@ -24,7 +24,7 @@ except ImportError:
 
 from toolbar import create_toolbar
 from menubar import create_menu_bar
-from files_panel import initialize_sidebar
+from files_panel import initialize_files
 from filesystem import load_file, load_file_by_path, save_current_file
 
 
@@ -50,7 +50,7 @@ class MyApp(MasterPanel, QMainWindow):
         QMainWindow.__init__(self)
         self.config_path = AppConfig.ensure_config_exists()
         self.current_file_path = None
-        self.current_sidebar_directory = None
+        self.current_files_directory = None
         self._original_markdown = ""  # Store original markdown when in preview mode
         self._editor_markdown = ""
         self._status_mode = "Режим форматированного редактирования"
@@ -69,21 +69,21 @@ class MyApp(MasterPanel, QMainWindow):
 
         self.resize(800, 600)
 
-        # Create sidebar with file list
+        # Create navigation panel with file list and connect its click handler.
         (
-            self.sidebar,
+            self.files,
             self.file_model,
-            self.sidebar_proxy_model,
-            self.sidebar_container,
-            self.sidebar_layout,
-            self.sidebar_dock,
+            self.files_proxy_model,
+            self.files_container,
+            self.files_layout,
+            self.files_dock,
             self.base_dir,
             startup_file,
-        ) = initialize_sidebar(
+        ) = initialize_files(
             self,
             config,
             self.config_section_name,
-            self.on_sidebar_clicked,
+            self.on_files_clicked,
             self._apply_panel_frame_style,
             self._sync_panel_layout,
         )
@@ -107,7 +107,7 @@ class MyApp(MasterPanel, QMainWindow):
         self.status_message_timer.timeout.connect(self._restore_status_message)
         self._update_status_context()
         self._render_status_message("")
-        self._pending_sidebar_width = None
+        self._pending_files_width = None
         self._panel_sizes_restored = False
         self._restore_window_state(config)
         self.update_save_action_state()
@@ -115,23 +115,20 @@ class MyApp(MasterPanel, QMainWindow):
         if startup_file:
             load_file_by_path(startup_file, self)
 
-    def on_sidebar_clicked(self, index):
-        """Handle sidebar file selection."""
+    def on_files_clicked(self, index):
+        """Handle files file selection."""
         source_index = index
-        if (
-            hasattr(self, "sidebar_proxy_model")
-            and self.sidebar_proxy_model is not None
-        ):
-            source_index = self.sidebar_proxy_model.mapToSource(index)
+        if hasattr(self, "files_proxy_model") and self.files_proxy_model is not None:
+            source_index = self.files_proxy_model.mapToSource(index)
 
         if not source_index.isValid():
             return
 
         clicked_path = self.file_model.filePath(source_index)
         if self.file_model.isDir(source_index):
-            self.current_sidebar_directory = clicked_path
+            self.current_files_directory = clicked_path
         else:
-            self.current_sidebar_directory = os.path.dirname(clicked_path)
+            self.current_files_directory = os.path.dirname(clicked_path)
             if not self.confirm_close_editor():
                 return
             load_file(self.file_model, source_index, self)
@@ -183,23 +180,23 @@ class MyApp(MasterPanel, QMainWindow):
 
         content_left = outer_margin
         content_right = outer_margin
-        sidebar_left = outer_margin
-        sidebar_right = outer_margin
+        files_left = outer_margin
+        files_right = outer_margin
 
-        if self.sidebar_dock.isVisible():
-            dock_area = self.dockWidgetArea(self.sidebar_dock)
+        if self.files_dock.isVisible():
+            dock_area = self.dockWidgetArea(self.files_dock)
             if dock_area == Qt.DockWidgetArea.LeftDockWidgetArea:
-                sidebar_right = inner_margin
+                files_right = inner_margin
                 content_left = inner_margin
             elif dock_area == Qt.DockWidgetArea.RightDockWidgetArea:
-                sidebar_left = inner_margin
+                files_left = inner_margin
                 content_right = inner_margin
 
         self.content_layout.setContentsMargins(
             content_left, outer_margin, content_right, outer_margin
         )
-        self.sidebar_layout.setContentsMargins(
-            sidebar_left, outer_margin, sidebar_right, outer_margin
+        self.files_layout.setContentsMargins(
+            files_left, outer_margin, files_right, outer_margin
         )
 
     def show_status_message(self, message, timeout=0):
@@ -374,17 +371,17 @@ class MyApp(MasterPanel, QMainWindow):
         else:
             self.showNormal()
 
-        sidebar_state = state_fields.get("sidebar", "left")
-        if sidebar_state == "hidden":
-            self.sidebar_dock.hide()
+        files_state = state_fields.get("files", "left")
+        if files_state == "hidden":
+            self.files_dock.hide()
         else:
-            self.sidebar_dock.show()
+            self.files_dock.show()
             dock_area = (
                 Qt.DockWidgetArea.RightDockWidgetArea
-                if sidebar_state == "right"
+                if files_state == "right"
                 else Qt.DockWidgetArea.LeftDockWidgetArea
             )
-            self.addDockWidget(dock_area, self.sidebar_dock)
+            self.addDockWidget(dock_area, self.files_dock)
 
         toolbar_state = state_fields.get("toolbar", "hidden")
         self.toolbar.setVisible(toolbar_state == "visible")
@@ -398,8 +395,8 @@ class MyApp(MasterPanel, QMainWindow):
             return False
 
         window_state = self._get_config_value(config, "window_state").strip().lower()
-        sidebar_position = (
-            self._get_config_value(config, "sidebar_position").strip().lower()
+        files_position = (
+            self._get_config_value(config, "files_position").strip().lower()
         )
 
         toolbar_status = (
@@ -414,7 +411,7 @@ class MyApp(MasterPanel, QMainWindow):
             elif legacy_toolbar_visibility == "hidden":
                 toolbar_status = "off"
 
-        if not any((window_state, sidebar_position, toolbar_status)):
+        if not any((window_state, files_position, toolbar_status)):
             return False
 
         if window_state == "maximized":
@@ -424,16 +421,16 @@ class MyApp(MasterPanel, QMainWindow):
         else:
             self.showNormal()
 
-        if sidebar_position == "hidden":
-            self.sidebar_dock.hide()
+        if files_position == "hidden":
+            self.files_dock.hide()
         else:
-            self.sidebar_dock.show()
+            self.files_dock.show()
             dock_area = (
                 Qt.DockWidgetArea.RightDockWidgetArea
-                if sidebar_position == "right"
+                if files_position == "right"
                 else Qt.DockWidgetArea.LeftDockWidgetArea
             )
-            self.addDockWidget(dock_area, self.sidebar_dock)
+            self.addDockWidget(dock_area, self.files_dock)
 
         self.toolbar.setVisible(toolbar_status != "off")
         return True
@@ -446,18 +443,18 @@ class MyApp(MasterPanel, QMainWindow):
         else:
             window_state = "normal"
 
-        if not self.sidebar_dock.isVisible():
-            sidebar_state = "hidden"
+        if not self.files_dock.isVisible():
+            files_state = "hidden"
         elif (
-            self.dockWidgetArea(self.sidebar_dock)
+            self.dockWidgetArea(self.files_dock)
             == Qt.DockWidgetArea.RightDockWidgetArea
         ):
-            sidebar_state = "right"
+            files_state = "right"
         else:
-            sidebar_state = "left"
+            files_state = "left"
 
         toolbar_state = "visible" if self.toolbar.isVisible() else "hidden"
-        return window_state, sidebar_state, toolbar_state
+        return window_state, files_state, toolbar_state
 
     def _restore_window_state(self, config):
         width = self._get_config_int(
@@ -501,12 +498,12 @@ class MyApp(MasterPanel, QMainWindow):
         config.set(self.config_section_name, "window_left", str(geometry.x()))
         config.set(self.config_section_name, "window_top", str(geometry.y()))
         config.set(
-            self.config_section_name, "sidebar_width", str(self.sidebar_dock.width())
+            self.config_section_name, "files_width", str(self.files_dock.width())
         )
         config.remove_option(self.config_section_name, "window_geometry")
-        window_state, sidebar_state, toolbar_state = self._serialize_state()
+        window_state, files_state, toolbar_state = self._serialize_state()
         config.set(self.config_section_name, "window_state", window_state)
-        config.set(self.config_section_name, "sidebar_position", sidebar_state)
+        config.set(self.config_section_name, "files_position", files_state)
         config.set(
             self.config_section_name,
             "toolbar_status",
@@ -520,32 +517,28 @@ class MyApp(MasterPanel, QMainWindow):
             config.remove_section("Panels")
 
     def _queue_panel_sizes_restore(self, config):
-        sidebar_width = self._get_config_int(config, "sidebar_width", fallback=0)
+        files_width = self._get_config_int(config, "files_width", fallback=0)
 
-        if sidebar_width <= 0 and "Panels" in config:
+        if files_width <= 0 and "Panels" in config:
             try:
-                sidebar_width = config.getint("Panels", "sidebar_width", fallback=0)
+                files_width = config.getint("Panels", "files_width", fallback=0)
             except ValueError:
-                sidebar_width = 0
+                files_width = 0
 
-        self._pending_sidebar_width = sidebar_width if sidebar_width > 0 else None
+        self._pending_files_width = files_width if files_width > 0 else None
         self._panel_sizes_restored = False
 
     def _apply_pending_panel_sizes(self):
-        if self._panel_sizes_restored or self._pending_sidebar_width is None:
+        if self._panel_sizes_restored or self._pending_files_width is None:
             return
-        if not self.sidebar_dock.isVisible():
+        if not self.files_dock.isVisible():
             return
         if self.width() <= 0 or self.content_widget.width() <= 0:
             return
 
-        available_width = max(
-            1, self.sidebar_dock.width() + self.content_widget.width()
-        )
-        sidebar_width = min(self._pending_sidebar_width, available_width - 1)
-        self.resizeDocks(
-            [self.sidebar_dock], [sidebar_width], Qt.Orientation.Horizontal
-        )
+        available_width = max(1, self.files_dock.width() + self.content_widget.width())
+        files_width = min(self._pending_files_width, available_width - 1)
+        self.resizeDocks([self.files_dock], [files_width], Qt.Orientation.Horizontal)
         self._panel_sizes_restored = True
 
     def showEvent(self, event):
