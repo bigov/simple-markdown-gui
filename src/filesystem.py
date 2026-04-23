@@ -7,6 +7,16 @@ from PySide6.QtCore import QItemSelectionModel
 from markdown_rendering import render_markdown_with_styles
 
 
+def _to_proxy_index(widget, model_index):
+    """Convert source file model index to sidebar model index when proxy is used."""
+    if (
+        hasattr(widget, "sidebar_proxy_model")
+        and widget.sidebar_proxy_model is not None
+    ):
+        return widget.sidebar_proxy_model.mapFromSource(model_index)
+    return model_index
+
+
 def write_text_to_file(file_path, text):
     # Keep line endings from the produced markdown text unchanged.
     with open(file_path, "w", encoding="utf-8", newline="") as file:
@@ -40,7 +50,7 @@ def _display_file(file_path, widget):
     file_path = os.path.abspath(file_path)
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8", newline="") as f:
             text = f.read()
 
         widget.current_file_path = file_path
@@ -73,12 +83,16 @@ def _display_file(file_path, widget):
 
         file_index = widget.file_model.index(file_path)
         if file_index.isValid():
-            widget.sidebar.setCurrentIndex(file_index)
+            sidebar_index = _to_proxy_index(widget, file_index)
+            if not sidebar_index.isValid():
+                return
+
+            widget.sidebar.setCurrentIndex(sidebar_index)
             widget.sidebar.selectionModel().select(
-                file_index,
+                sidebar_index,
                 QItemSelectionModel.SelectionFlag.ClearAndSelect,
             )
-            widget.sidebar.scrollTo(file_index)
+            widget.sidebar.scrollTo(sidebar_index)
     except (OSError, UnicodeError) as error:
         print(f"Error loading file: {error}")
 

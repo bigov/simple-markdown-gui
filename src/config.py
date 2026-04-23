@@ -241,7 +241,7 @@ sidebar_width = 226
 window_state = normal
 ; allowed: left, right, hidden
 sidebar_position = left
-; allowed: on, off
+; allowed: visible, hidden
 toolbar_status = off
 """
 

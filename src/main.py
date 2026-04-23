@@ -73,6 +73,7 @@ class MyApp(MasterPanel, QMainWindow):
         (
             self.sidebar,
             self.file_model,
+            self.sidebar_proxy_model,
             self.sidebar_container,
             self.sidebar_layout,
             self.sidebar_dock,
@@ -116,14 +117,24 @@ class MyApp(MasterPanel, QMainWindow):
 
     def on_sidebar_clicked(self, index):
         """Handle sidebar file selection."""
-        clicked_path = self.file_model.filePath(index)
-        if self.file_model.isDir(index):
+        source_index = index
+        if (
+            hasattr(self, "sidebar_proxy_model")
+            and self.sidebar_proxy_model is not None
+        ):
+            source_index = self.sidebar_proxy_model.mapToSource(index)
+
+        if not source_index.isValid():
+            return
+
+        clicked_path = self.file_model.filePath(source_index)
+        if self.file_model.isDir(source_index):
             self.current_sidebar_directory = clicked_path
         else:
             self.current_sidebar_directory = os.path.dirname(clicked_path)
             if not self.confirm_close_editor():
                 return
-            load_file(self.file_model, index, self)
+            load_file(self.file_model, source_index, self)
 
     def update_save_action_state(self):
         is_modified = self.editor.document().isModified()

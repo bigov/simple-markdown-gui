@@ -29,6 +29,11 @@
 			"label": "Run Tests With Coverage",
 			"type": "shell",
 			"command": "${workspaceFolder}/.venv/Scripts/python.exe",
+			"options": {
+				"env": {
+					"COVERAGE_FILE": "${workspaceFolder}/tests/.coverage"
+				}
+			},
 			"args": [
 				"-m",
 				"pytest",
@@ -59,7 +64,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"${workspaceFolder}/build_windows.ps1"
+				"${workspaceFolder}/tools/build_windows.ps1"
 			],
 			"isBackground": false,
 			"group": {
@@ -76,7 +81,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"${workspaceFolder}/build_release_zip.ps1"
+				"${workspaceFolder}/tools/build_release_zip.ps1"
 			],
 			"isBackground": false,
 			"group": "build"
@@ -90,7 +95,7 @@
 				"-ExecutionPolicy",
 				"Bypass",
 				"-File",
-				"${workspaceFolder}/clean_release_artifacts.ps1"
+				"${workspaceFolder}/tools/clean_release_artifacts.ps1"
 			],
 			"isBackground": false,
 			"group": "build"

@@ -9,7 +9,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptDir
 $pythonExe = Join-Path $repoRoot '.venv\Scripts\python.exe'
 $sourceDir = Join-Path $repoRoot 'src'
 $distDir = Join-Path $repoRoot 'dist'
@@ -18,9 +19,10 @@ $pyInstallerDistDir = Join-Path $buildRoot 'dist'
 $workDir = Join-Path $buildRoot 'work'
 $resourceDir = Join-Path $buildRoot 'resources'
 $faviconPath = Join-Path $repoRoot 'src\resources\icon.png'
-$resourceHelper = Join-Path $repoRoot 'tools\prepare_windows_build_resources.py'
-$buildVersionHelper = Join-Path $repoRoot 'tools\build_version.ps1'
-$specFilePath = Join-Path $repoRoot 'simple-markdown-gui.spec'
+$resourceHelper = Join-Path $scriptDir 'prepare_windows_build_resources.py'
+$buildVersionHelper = Join-Path $scriptDir 'get_version.ps1'
+$specFilePath = Join-Path $scriptDir 'simple-markdown-gui.spec'
+$requirementsBuildPath = Join-Path $scriptDir 'requirements-build.txt'
 $entryScriptPath = Join-Path $repoRoot 'src\main.py'
 $iconPath = Join-Path $resourceDir 'simple-markdown-gui.ico'
 $versionFilePath = Join-Path $resourceDir 'version_info.txt'
@@ -41,7 +43,7 @@ Push-Location $repoRoot
 
 try {
     if (-not $SkipDependencyInstall) {
-        & $pythonExe -m pip install -r requirements-build.txt
+        & $pythonExe -m pip install -r $requirementsBuildPath
         if ($LASTEXITCODE -ne 0) {
             throw 'Failed to install build dependencies.'
         }

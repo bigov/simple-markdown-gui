@@ -7,8 +7,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$buildVersionHelper = Join-Path $repoRoot 'tools\build_version.ps1'
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptDir
+$buildVersionHelper = Join-Path $scriptDir 'get_version.ps1'
 $releaseDir = Join-Path $repoRoot 'release'
 $distExe = Join-Path $repoRoot 'dist\simple-markdown-gui.exe'
 
@@ -33,7 +34,7 @@ try {
         $buildArgs = @(
             '-NoProfile',
             '-ExecutionPolicy', 'Bypass',
-            '-File', (Join-Path $repoRoot 'build_windows.ps1')
+            '-File', (Join-Path $scriptDir 'build_windows.ps1')
         )
 
         if ($Version) {

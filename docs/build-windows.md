@@ -12,7 +12,7 @@ This project can be packaged into a standalone Windows executable with PyInstall
 Run the build script from the repository root:
 
 ```powershell
-./build_windows.ps1
+./tools/build_windows.ps1
 ```
 
 The script reads the executable version from [../src/__init__.py](../src/__init__.py).
@@ -37,13 +37,13 @@ dist/simple-markdown-gui.exe
 Run the release packaging script from the repository root:
 
 ```powershell
-./build_release_zip.ps1
+./tools/build_release_zip.ps1
 ```
 
 If dist/simple-markdown-gui.exe is already present and only the archive needs to be rebuilt:
 
 ```powershell
-./build_release_zip.ps1 -SkipBuild
+./tools/build_release_zip.ps1 -SkipBuild
 ```
 
 The script builds the executable and creates:
@@ -62,7 +62,7 @@ The ZIP archive contains the executable together with README and license files.
 To remove stale build artifacts, logs, and older release files while keeping the current release:
 
 ```powershell
-./clean_release_artifacts.ps1
+./tools/clean_release_artifacts.ps1
 ```
 
 ## Notes

@@ -11,6 +11,26 @@ from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox, QLineEdit
 from config import AppConfig
 
 
+def _to_source_index(window, model_index):
+    """Convert sidebar model index to source file model index when proxy is used."""
+    if (
+        hasattr(window, "sidebar_proxy_model")
+        and window.sidebar_proxy_model is not None
+    ):
+        return window.sidebar_proxy_model.mapToSource(model_index)
+    return model_index
+
+
+def _to_proxy_index(window, model_index):
+    """Convert source file model index to sidebar model index when proxy is used."""
+    if (
+        hasattr(window, "sidebar_proxy_model")
+        and window.sidebar_proxy_model is not None
+    ):
+        return window.sidebar_proxy_model.mapFromSource(model_index)
+    return model_index
+
+
 def _current_directory(window):
     """Return the working directory based on sidebar selection or open file."""
     if (
@@ -34,11 +54,15 @@ def _selected_sidebar_item(window):
     if not current_index.isValid():
         return None, False
 
-    selected_path = window.file_model.filePath(current_index)
+    source_index = _to_source_index(window, current_index)
+    if not source_index.isValid():
+        return None, False
+
+    selected_path = window.file_model.filePath(source_index)
     if not selected_path:
         return None, False
 
-    return selected_path, window.file_model.isDir(current_index)
+    return selected_path, window.file_model.isDir(source_index)
 
 
 def _is_empty_directory(path):
@@ -49,8 +73,11 @@ def _is_empty_directory(path):
 
 def _select_sidebar_path(window, abs_path):
     """Select the provided absolute path in sidebar if model can resolve it."""
-    file_index = window.file_model.index(abs_path)
-    if file_index.isValid():
+    source_index = window.file_model.index(abs_path)
+    if source_index.isValid():
+        file_index = _to_proxy_index(window, source_index)
+        if not file_index.isValid():
+            return
         window.sidebar.setCurrentIndex(file_index)
         window.sidebar.selectionModel().select(
             file_index,
@@ -268,14 +295,8 @@ def create_file_in_current_directory(window):
 
         load_file_by_path(abs_path, window)
 
-    file_index = window.file_model.index(abs_path)
-    if file_index.isValid():
-        window.sidebar.setCurrentIndex(file_index)
-        window.sidebar.selectionModel().select(
-            file_index,
-            QItemSelectionModel.SelectionFlag.ClearAndSelect,
-        )
-        window.current_sidebar_directory = os.path.dirname(abs_path)
+    _select_sidebar_path(window, abs_path)
+    window.current_sidebar_directory = os.path.dirname(abs_path)
 
 
 def create_subdirectory_in_current_directory(window):
@@ -330,7 +351,7 @@ def open_markdown_file(window):
 
     if hasattr(window, "file_model") and hasattr(window, "sidebar"):
         root_index = window.file_model.setRootPath(base_dir)
-        window.sidebar.setRootIndex(root_index)
+        window.sidebar.setRootIndex(_to_proxy_index(window, root_index))
 
     if hasattr(window, "load_file_by_path_fn"):
         window.load_file_by_path_fn(abs_path)

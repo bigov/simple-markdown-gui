@@ -5,8 +5,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$buildVersionHelper = Join-Path $repoRoot 'tools\build_version.ps1'
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $scriptDir
+$buildVersionHelper = Join-Path $scriptDir 'get_version.ps1'
 $buildDir = Join-Path $repoRoot 'build'
 $releaseDir = Join-Path $repoRoot 'release'
 $logFiles = @(

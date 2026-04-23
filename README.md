@@ -60,15 +60,17 @@ pip install PySide6==6.7.0
 
 ```
 simple-markdown-gui/
-├── build_windows.ps1         # Build standalone Windows executable
-├── build_release_zip.ps1     # Package release ZIP and checksum
-├── clean_release_artifacts.ps1
 ├── docs/                     # Project documentation
 │   ├── index.md
 │   ├── build-windows.md
 │   └── release-checklist.md
 ├── release/                  # Release archives and checksums
-├── tools/                    # Build helper scripts
+├── tools/                    # Build scripts and helper scripts
+│   ├── build_windows.ps1     # Build standalone Windows executable
+│   ├── build_release_zip.ps1 # Package release ZIP and checksum
+│   ├── clean_release_artifacts.ps1
+│   ├── requirements-build.txt
+│   └── simple-markdown-gui.spec  # PyInstaller spec file
 ├── src/
 │   ├── main.py               # Application entry point
 │   ├── master_panel.py       # Central browser/editor panel logic
@@ -93,8 +95,7 @@ simple-markdown-gui/
 ├── NOTICE                    # Third-party license notices
 ├── README.md
 ├── requirements.txt
-├── requirements-build.txt
-└── simple-markdown-gui.spec  # PyInstaller spec file
+└── ...
 ```
 
 ---
@@ -110,7 +111,7 @@ python src/main.py
 The project includes a PowerShell build script that creates a self-contained Windows executable with PyInstaller. The resulting file does not depend on a system-wide Python installation.
 
 ```powershell
-./build_windows.ps1
+./tools/build_windows.ps1
 ```
 
 The script will:
@@ -126,19 +127,19 @@ The current app version is defined in [src/__init__.py](src/__init__.py) and is 
 To create a distributable release archive:
 
 ```powershell
-./build_release_zip.ps1
+./tools/build_release_zip.ps1
 ```
 
 If the executable is already built and you only want to package it into ZIP again:
 
 ```powershell
-./build_release_zip.ps1 -SkipBuild
+./tools/build_release_zip.ps1 -SkipBuild
 ```
 
 To remove stale build artifacts, logs, and older release files in one step:
 
 ```powershell
-./clean_release_artifacts.ps1
+./tools/clean_release_artifacts.ps1
 ```
 
 At startup, the application always uses the user-specific directory derived from `app_name`: `%LOCALAPPDATA%/Markdown GUI` on Windows. If config.ini or styles.css is missing there, the file is recreated from embedded templates in [src/config.py](src/config.py).

@@ -2,9 +2,25 @@
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSortFilterProxyModel
 from PySide6.QtWidgets import QDockWidget, QFileSystemModel, QTreeView, QVBoxLayout
 from PySide6.QtWidgets import QWidget
+
+
+class DotEntryFilterProxyModel(QSortFilterProxyModel):
+    """Hide files and directories whose names start with a dot."""
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        source_model = self.sourceModel()
+        if source_model is None:
+            return False
+
+        source_index = source_model.index(source_row, 0, source_parent)
+        if not source_index.isValid():
+            return False
+
+        entry_name = source_model.fileName(source_index)
+        return not entry_name.startswith(".")
 
 
 def resolve_base_dir(base_dir=None):
@@ -43,9 +59,12 @@ def create_sidebar(base_dir=None):
     sidebar = QTreeView()
     model = QFileSystemModel()
     model.setRootPath(str(base_path))
+    proxy_model = DotEntryFilterProxyModel(sidebar)
+    proxy_model.setRecursiveFilteringEnabled(True)
+    proxy_model.setSourceModel(model)
 
-    sidebar.setModel(model)
-    sidebar.setRootIndex(model.index(str(base_path)))
+    sidebar.setModel(proxy_model)
+    sidebar.setRootIndex(proxy_model.mapFromSource(model.index(str(base_path))))
     sidebar.setHeaderHidden(True)
 
     # Hide columns except name
@@ -55,7 +74,7 @@ def create_sidebar(base_dir=None):
 
     sidebar.setColumnWidth(0, 100)
 
-    return sidebar, model
+    return sidebar, model, proxy_model
 
 
 # Qt panel setup intentionally accepts config and callback hooks in one place.
@@ -74,7 +93,7 @@ def initialize_sidebar(
     else:
         base_dir = get_sidebar_base_dir(config, config_section_name)
 
-    sidebar, model = create_sidebar(base_dir)
+    sidebar, model, proxy_model = create_sidebar(base_dir)
 
     if click_handler is not None:
         sidebar.clicked.connect(click_handler)
@@ -111,6 +130,7 @@ def initialize_sidebar(
     return (
         sidebar,
         model,
+        proxy_model,
         sidebar_container,
         sidebar_layout,
         sidebar_dock,
