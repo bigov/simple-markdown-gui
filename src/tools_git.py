@@ -6,8 +6,20 @@ import subprocess
 from dataclasses import dataclass
 
 from git import InvalidGitRepositoryError, NoSuchPathError, Repo
-from git.exc import GitCommandError
 from PySide6.QtWidgets import QMessageBox
+
+
+SAVE_COMMIT_MESSAGE_PREFIX = "chore: save"
+
+
+def build_save_commit_message(base_dir, saved_file_path):
+    """Build formal commit message with file path relative to base_dir."""
+    try:
+        relative_path = os.path.relpath(saved_file_path, start=base_dir)
+    except ValueError:
+        relative_path = os.path.basename(saved_file_path)
+    relative_path = relative_path.replace("\\", "/")
+    return f"{SAVE_COMMIT_MESSAGE_PREFIX} {relative_path}"
 
 
 @dataclass
@@ -48,24 +60,29 @@ def run_git_command(base_dir, args, timeout_seconds=10):
     """Run a git command in base_dir and return GitCommandResult or None."""
     try:
         repo = Repo(base_dir)
-        command = [repo.git.GIT_PYTHON_GIT_EXECUTABLE, *args]
+        git_executable = str(repo.git.GIT_PYTHON_GIT_EXECUTABLE)
+        command = [git_executable, *args]
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        returncode, stdout, stderr = repo.git.execute(
+        completed = subprocess.run(
             command,
-            with_extended_output=True,
-            with_exceptions=False,
-            stdout_as_string=True,
-            universal_newlines=True,
-            kill_after_timeout=timeout_seconds,
+            cwd=base_dir,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
             creationflags=creationflags,
         )
-        return GitCommandResult(returncode=returncode, stdout=stdout, stderr=stderr)
+        return GitCommandResult(
+            returncode=completed.returncode,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
+        )
     except (
         NoSuchPathError,
         InvalidGitRepositoryError,
-        GitCommandError,
         OSError,
         ValueError,
+        subprocess.TimeoutExpired,
     ):
         return None
 
@@ -136,24 +153,102 @@ def prompt_git_pull_if_needed(parent_widget, base_dir, git_enable=None):
 
 
 def prompt_git_push_after_save(parent_widget, base_dir, git_enable):
-    """Offer git push right after a successful file save when git is enabled."""
+    """Offer git commit + push right after a successful file save."""
     if not git_enable:
         return
 
+    saved_file_path = getattr(parent_widget, "current_file_path", None)
+    if not saved_file_path:
+        QMessageBox.warning(
+            parent_widget,
+            "Git commit failed",
+            "Could not determine the saved file path for creating commit.",
+        )
+        return
+
+    save_commit_message = build_save_commit_message(base_dir, saved_file_path)
+    relative_file_path = save_commit_message.removeprefix(
+        f"{SAVE_COMMIT_MESSAGE_PREFIX} "
+    )
+
     push_question = QMessageBox.question(
         parent_widget,
-        "Git push",
-        "File saved successfully. Push current branch to remote now?",
+        "Git commit and push",
+        (
+            "File saved successfully.\n"
+            f"Create commit for '{relative_file_path}' and push current branch now?"
+        ),
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.No,
     )
     if push_question != QMessageBox.StandardButton.Yes:
         return
 
+    add_result = run_git_command(
+        base_dir,
+        ["add", "--", saved_file_path],
+        timeout_seconds=15,
+    )
+    if add_result is None or add_result.returncode != 0:
+        error_details = "Unknown git error."
+        if add_result is not None:
+            error_details = (
+                add_result.stderr.strip() or add_result.stdout.strip() or error_details
+            )
+        QMessageBox.warning(
+            parent_widget,
+            "Git commit failed",
+            f"Could not stage saved file for commit.\n\n{error_details}",
+        )
+        return
+
+    commit_result = run_git_command(
+        base_dir,
+        ["commit", "-m", save_commit_message],
+        timeout_seconds=20,
+    )
+    commit_details = ""
+    if commit_result is None:
+        QMessageBox.warning(
+            parent_widget,
+            "Git commit failed",
+            "Could not create commit for the saved file.",
+        )
+        return
+
+    if commit_result.returncode == 0:
+        commit_details = commit_result.stdout.strip()
+    else:
+        commit_output = f"{commit_result.stdout}\n{commit_result.stderr}".lower()
+        has_no_changes = (
+            "nothing to commit" in commit_output
+            or "no changes added to commit" in commit_output
+        )
+        if not has_no_changes:
+            error_details = (
+                commit_result.stderr.strip()
+                or commit_result.stdout.strip()
+                or "Unknown git error."
+            )
+            QMessageBox.warning(
+                parent_widget,
+                "Git commit failed",
+                f"Could not create commit for saved file.\n\n{error_details}",
+            )
+            return
+
     push_result = run_git_command(base_dir, ["push"], timeout_seconds=30)
     if push_result is not None and push_result.returncode == 0:
-        details = push_result.stdout.strip() or "Git push completed successfully."
-        QMessageBox.information(parent_widget, "Git push completed", details)
+        push_details = push_result.stdout.strip()
+        details_parts = []
+        if commit_details:
+            details_parts.append(commit_details)
+        details_parts.append(push_details or "Git push completed successfully.")
+        QMessageBox.information(
+            parent_widget,
+            "Git commit and push completed",
+            "\n\n".join(details_parts),
+        )
         return
 
     error_details = "Unknown git error."
